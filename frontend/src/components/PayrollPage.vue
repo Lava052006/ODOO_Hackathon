@@ -8,41 +8,43 @@
       </div>
       <div class="header-actions">
         <a class="secondary-button" :href="exportReportUrl" download="ARIA-payroll-report.csv"><Icon name="download" /> Report</a>
-        <button class="primary-button" type="button" @click="runPayroll"><Icon name="rupee" /> {{ running ? 'Checked' : 'Run payroll check' }}</button>
+        <button class="primary-button" type="button" @click="runPayroll"><Icon name="rupee" /> {{ running ? 'Payroll closed' : 'Validate & close' }}</button>
       </div>
     </header>
 
     <div class="payroll-hero surface">
       <div class="readiness-ring">
-        <span><strong>{{ running ? '100' : '90' }}</strong><small>% ready</small></span>
+        <span><strong>{{ running ? '100' : (summary.readiness || '90') }}</strong><small>% ready</small></span>
       </div>
       <div>
         <span class="section-kicker">August 2026 payroll</span>
-        <h2>{{ running ? 'Payroll is ready to close' : 'Almost ready. Twelve checks remain.' }}</h2>
+        <h2>{{ running ? 'Payroll is validated and closed' : `Almost ready. ${summary.exceptions || 12} items to review.` }}</h2>
         <p>{{ running ? 'All 120 employee records passed validation in PostgreSQL.' : 'Resolve attendance and bank-detail exceptions before 28 August.' }}</p>
         <div class="payroll-tags">
-          <span><Icon name="check" /> 108 cleared</span>
-          <span class="warn"><Icon name="clock" /> {{ running ? 0 : 12 }} to review</span>
+          <span><Icon name="check" /> {{ running ? 120 : 108 }} cleared</span>
+          <span :class="running ? '' : 'warn'"><Icon name="clock" /> {{ running ? 0 : (summary.exceptions || 12) }} to review</span>
           <span><Icon name="calendar" /> 6 days left</span>
         </div>
       </div>
-      <button class="primary-button dark" type="button" @click="runPayroll">{{ running ? 'Close payroll' : 'Review 12 checks' }} <Icon name="arrow" /></button>
+      <button class="primary-button dark" type="button" @click="handleHeroAction">
+        {{ running ? 'Payroll closed' : 'Review checks' }} <Icon name="arrow" />
+      </button>
     </div>
 
     <div class="summary-grid four">
-      <article class="summary-card"><span class="metric-icon"><Icon name="rupee" /></span><div><small>Gross payroll</small><strong>{{ summary.grossPayroll || '₹84.6L' }}</strong><em>+3.2% MoM</em></div></article>
+      <article class="summary-card"><span class="metric-icon"><Icon name="rupee" /></span><div><small>Gross payroll</small><strong>{{ summary.grossPayroll || '₹73.5L' }}</strong><em>+3.2% MoM</em></div></article>
       <article class="summary-card"><span class="metric-icon"><Icon name="users" /></span><div><small>Employees</small><strong>{{ summary.employeeCount || 120 }}</strong><em>All included</em></div></article>
       <article class="summary-card"><span class="metric-icon"><Icon name="calendar" /></span><div><small>Pay date</small><strong>{{ summary.payDate || '31 Aug' }}</strong><em>On schedule</em></div></article>
       <article class="summary-card"><span class="metric-icon warning"><Icon name="spark" /></span><div><small>Exceptions</small><strong>{{ running ? 0 : (summary.exceptions || 12) }}</strong><em>{{ running ? 'Resolved' : 'Need review' }}</em></div></article>
     </div>
 
-    <div class="content-grid payroll-grid">
+    <div id="checklist-section" class="content-grid payroll-grid">
       <article class="surface">
         <header class="section-heading">
           <div><span class="section-kicker">Pre-flight checks</span><h2>Payroll checklist</h2></div>
-          <span class="status protected">{{ running ? 'Complete' : '90%' }}</span>
+          <span class="status" :class="running ? 'protected' : 'pending'">{{ running ? 'Complete' : 'Action required' }}</span>
         </header>
-        <button v-for="check in checks" :key="check.label" type="button" class="payroll-check">
+        <button v-for="check in checks" :key="check.label" type="button" class="payroll-check" @click="handleCheckClick(check)">
           <span class="metric-icon" :class="check.tone"><Icon :name="check.icon" /></span>
           <span><strong>{{ check.label }}</strong><small>{{ running ? 'No issues found' : check.detail }}</small></span>
           <span class="status" :class="running ? 'protected' : check.statusTone">{{ running ? 'Clear' : check.status }}</span>
@@ -63,7 +65,7 @@
           </div>
         </div>
         <div class="forecast">
-          <span><small>September forecast</small><strong>₹86.1L</strong></span>
+          <span><small>September forecast</small><strong>₹75.8L</strong></span>
           <span><small>Expected change</small><strong>+1.8%</strong></span>
         </div>
       </article>
@@ -130,7 +132,7 @@ import { onMounted, ref } from "vue"
 import Icon from "./Icon.vue"
 import { payrollApi } from "../api.js"
 
-const emit = defineEmits(["toast"])
+const emit = defineEmits(["toast", "navigate"])
 const exportReportUrl = payrollApi.exportReportUrl()
 const running = ref(false)
 const selectedPayroll = ref(null)
@@ -155,6 +157,28 @@ async function loadPayroll() {
 onMounted(() => {
   loadPayroll()
 })
+
+function handleHeroAction() {
+  if (running.value) {
+    emit("toast", "August 2026 payroll is already closed and finalized")
+    return
+  }
+  const el = document.getElementById("checklist-section")
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth" })
+    emit("toast", "Reviewing pre-flight checklist")
+  }
+}
+
+function handleCheckClick(check) {
+  if (check.label === "Attendance inputs") {
+    emit("navigate", "Attendance")
+  } else if (check.label === "Leave adjustments") {
+    emit("navigate", "Time off")
+  } else if (check.label === "Bank details" || check.label === "Compensation changes") {
+    emit("navigate", "People")
+  }
+}
 
 async function runPayroll() {
   try {

@@ -2,7 +2,7 @@
   <AuthScreen v-if="!currentUser" @authenticated="handleAuthenticated" @toast="showToast" />
   <div v-else class="app-shell" :class="{ 'employee-mode': mode === 'employee' }">
     <aside class="sidebar" :class="{ open: mobileMenu }">
-      <button class="brand" type="button" @click="selectPage('Command centre')" aria-label="ARIA home">
+      <button class="brand" type="button" @click="handleBrandClick" aria-label="ARIA home">
         <span class="brand-mark" aria-hidden="true">
           <svg viewBox="0 0 48 48" fill="none">
             <path d="M10 29c5-6 9-8 14-8s9 2 14 8" stroke="#ffbf39" stroke-width="3.4" stroke-linecap="round"/>
@@ -14,7 +14,7 @@
       </button>
 
       <nav class="main-nav" aria-label="Workspace navigation">
-        <button v-for="item in availableNavItems" :key="item.label" type="button" :class="{ active: page === item.label }" @click="selectPage(item.label)">
+        <button v-for="item in availableNavItems" :key="item.label" type="button" :class="{ active: page === item.label && mode === 'admin' }" @click="selectPage(item.label)">
           <Icon :name="item.icon" />
           <span>{{ item.label }}</span>
           <span v-if="item.count" class="nav-count">{{ item.count }}</span>
@@ -38,7 +38,7 @@
     <main class="workspace">
       <header class="topbar">
         <button class="menu-button" type="button" aria-label="Open menu" @click="mobileMenu = true"><Icon name="menu" /></button>
-        <div class="breadcrumb"><span>Workspace</span><b>/</b><strong>{{ page }}</strong></div>
+        <div class="breadcrumb"><span>Workspace</span><b>/</b><strong>{{ mode === 'employee' ? 'My workday' : page }}</strong></div>
         <div class="top-actions">
           <button v-if="isAdmin" class="mode-switch" type="button" @click="toggleMode">
             <Icon :name="mode === 'admin' ? 'building' : 'user'" />
@@ -66,7 +66,7 @@
           </section>
 
           <section class="journey-strip" aria-label="Workday status">
-            <div v-for="(step, index) in journey" :key="step.label" class="journey-step">
+            <div v-for="(step, index) in journey" :key="step.label" class="journey-step" @click="selectPage(step.label)" style="cursor: pointer;">
               <span>{{ index + 1 }}</span>
               <div><strong>{{ step.label }}</strong><small>{{ step.note }}</small></div>
             </div>
@@ -129,8 +129,8 @@
 
         <PeoplePage v-else-if="page === 'People'" @toast="showToast" @profile="openProfile($event, 'personal')" />
         <AttendancePage v-else-if="page === 'Attendance'" @toast="showToast" />
-        <TimeOffPage v-else-if="page === 'Time off'" :requests="pendingRequests" @decision="openDecision" @leave="leaveDialog = true" />
-        <PayrollPage v-else-if="page === 'Payroll'" @toast="showToast" />
+        <TimeOffPage v-else-if="page === 'Time off'" :requests="pendingRequests" @decision="openDecision" @leave="leaveDialog = true" @toast="showToast" />
+        <PayrollPage v-else-if="page === 'Payroll'" @toast="showToast" @navigate="handleNavigate" />
         <RosterPage v-else-if="page === 'Roster'" @toast="showToast" />
       </div>
     </main>
@@ -163,7 +163,7 @@
     </Transition>
 
     <Transition name="fade"><ProfilePanel v-if="profileOpen" :person="profilePerson" :is-admin="isAdmin" :initial-tab="profileTab" @close="profileOpen=false" @toast="showToast" /></Transition>
-    <Transition name="fade"><NotificationPanel v-if="notificationsOpen" @close="notificationsOpen=false" @toast="showToast" @read="notificationsUnread=false" /></Transition>
+    <Transition name="fade"><NotificationPanel v-if="notificationsOpen" @close="notificationsOpen=false" @toast="showToast" @read="notificationsUnread=false" @navigate="handleNavigate" /></Transition>
 
     <Transition name="toast"><div v-if="toast" class="toast" role="status"><span><Icon name="check" /></span>{{ toast }}</div></Transition>
   </div>
@@ -197,7 +197,7 @@ const profileOpen = ref(false)
 const profilePerson = ref(null)
 const profileTab = ref("personal")
 const notificationsOpen = ref(false)
-const notificationsUnread = ref(true)
+const notificationsUnread = ref(false)
 const leaveForm = ref({ type: "Paid leave", from: "2026-08-25", to: "2026-08-27", reason: "Family event" })
 const isAdmin = computed(() => currentUser.value?.role === "admin")
 
@@ -239,14 +239,36 @@ async function loadCommandCentre() {
   }
 }
 
+async function checkNotifications() {
+  try {
+    const data = await coreApi.getNotifications()
+    if (data.notifications && data.notifications.some((n) => !n.read)) {
+      notificationsUnread.value = true
+    }
+  } catch {
+    // Ignore notification check error
+  }
+}
+
 onMounted(() => {
   if (currentUser.value) {
     loadCommandCentre()
+    checkNotifications()
   }
 })
 
 function initials(name = "") {
   return (name || "").split(" ").filter(Boolean).map((part) => part[0]).join("") || "AR"
+}
+
+function handleBrandClick() {
+  if (currentUser.value?.role === "employee") {
+    mode.value = "employee"
+  } else {
+    selectPage("Command centre")
+  }
+  mobileMenu.value = false
+  window.scrollTo({ top: 0, behavior: "smooth" })
 }
 
 function selectPage(value) {
@@ -259,6 +281,10 @@ function selectPage(value) {
   }
 }
 
+function handleNavigate(target) {
+  selectPage(target)
+}
+
 function toggleMode() {
   mode.value = mode.value === "admin" ? "employee" : "admin"
 }
@@ -269,6 +295,7 @@ function handleAuthenticated(user) {
   sessionStorage.setItem("aria-session", JSON.stringify(user))
   if (user.newlyVerified) showToast("Email verified — your ARIA account is ready")
   loadCommandCentre()
+  checkNotifications()
 }
 
 async function logout() {

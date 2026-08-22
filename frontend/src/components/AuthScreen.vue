@@ -27,7 +27,6 @@
             <button class="primary-button dark auth-submit" type="submit" :disabled="loading">{{ loading ? 'Signing in...' : 'Sign in' }} <Icon name="arrow" /></button>
           </form>
           <div class="demo-credentials"><strong>Demo accounts</strong><button type="button" @click="useDemo('admin')"><span>HR Admin</span><code>admin@aria.com · Aria@2026</code></button><button type="button" @click="useDemo('employee')"><span>Employee</span><code>employee@aria.com · Aria@2026</code></button></div>
-
         </template>
 
         <template v-else-if="screen === 'signup'">
@@ -59,7 +58,15 @@
         <template v-else>
           <button class="auth-back" type="button" @click="screen='signin'">← Back to sign in</button>
           <div class="verify-icon"><Icon name="shield" /></div><span class="section-kicker">Account recovery</span><h2>Reset your password</h2><p>Enter your work email address.</p>
-          <form @submit.prevent="sendReset"><label>Work email<input v-model.trim="resetEmail" type="email" placeholder="name@aria.com" required /></label><p v-if="error" class="form-error" role="alert"><Icon name="alert" /> {{error}}</p><p v-if="resetSent" class="form-success"><Icon name="check" /> Reset instructions have been generated for {{resetEmail}}.</p><button class="primary-button auth-submit" type="submit">Send reset instructions</button></form>
+          <form v-if="!resetSent" @submit.prevent="sendReset">
+            <label>Work email<input v-model.trim="resetEmail" type="email" placeholder="name@aria.com" required /></label>
+            <p v-if="error" class="form-error" role="alert"><Icon name="alert" /> {{error}}</p>
+            <button class="primary-button auth-submit" type="submit">Send reset instructions</button>
+          </form>
+          <div v-else class="reset-success-box" style="margin-top: 1rem;">
+            <p class="form-success"><Icon name="check" /> Reset instructions have been generated for <strong>{{resetEmail}}</strong>.</p>
+            <button class="primary-button auth-submit" type="button" style="margin-top: 1.25rem;" @click="screen='signin'">Return to sign in</button>
+          </div>
         </template>
       </div>
     </section>
@@ -109,11 +116,6 @@ async function signIn() {
   } finally {
     loading.value = false
   }
-}
-
-function startSignup() {
-  error.value = ""
-  screen.value = "signup"
 }
 
 async function requestVerification() {

@@ -55,6 +55,11 @@ export const employeeApi = {
   getAll: () => request("/employees/"),
   getSummary: () => request("/employees/summary/"),
   get: (employeeId) => request(`/employees/${employeeId}/`),
+  create: (data) =>
+    request("/employees/", {
+      method: "POST",
+      body: JSON.stringify(data)
+    }),
   update: (employeeId, data) =>
     request(`/employees/${employeeId}/`, {
       method: "PATCH",
@@ -68,7 +73,12 @@ export const employeeApi = {
 }
 
 export const attendanceApi = {
-  getSummary: () => request("/attendance/summary/"),
+  getSummary: (weekOffset = 0) => request(`/attendance/summary/?weekOffset=${weekOffset}`),
+  resolveException: (id, action) =>
+    request(`/attendance/exceptions/${id}/resolve/`, {
+      method: "POST",
+      body: JSON.stringify({ action })
+    }),
   toggleCheckin: () => request("/attendance/toggle-checkin/", { method: "POST" }),
   getMyWeek: () => request("/attendance/my-week/"),
   exportCsvUrl: () => `${API_BASE}/attendance/export/`
