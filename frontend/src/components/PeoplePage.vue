@@ -6,7 +6,7 @@
         <h1>Know the people behind the work.</h1>
         <p>One current record for every teammate, role and reporting line.</p>
       </div>
-      <button class="primary-button" type="button" @click="$emit('toast', 'Invite link copied')"><Icon name="user-plus" /> Add employee</button>
+      <button class="primary-button" type="button" @click="addModalOpen = true"><Icon name="user-plus" /> Add employee</button>
     </header>
 
     <div class="summary-grid four">
@@ -46,10 +46,41 @@
 
     <article class="surface table-surface">
       <header class="section-heading table-heading">
-        <div><span class="section-kicker">{{ people.length }} employees</span><h2>Everyone at ARIA</h2></div>
+        <div><span class="section-kicker">{{ filteredPeople.length }} employees</span><h2>Everyone at ARIA</h2></div>
         <div class="table-tools">
           <label class="search-box"><Icon name="search" /><input v-model="query" placeholder="Search people" /></label>
-          <button class="secondary-button" type="button"><Icon name="filter" /> Filter</button>
+          <div class="filter-dropdown-wrap">
+            <button class="secondary-button" type="button" @click="filterOpen = !filterOpen">
+              <Icon name="filter" /> Filter
+              <span v-if="selectedDept !== 'All' || selectedStatus !== 'All'" class="filter-badge">●</span>
+            </button>
+            <div v-if="filterOpen" class="filter-dropdown surface">
+              <div class="filter-group">
+                <small>Department</small>
+                <select v-model="selectedDept">
+                  <option>All</option>
+                  <option>Engineering</option>
+                  <option>Product</option>
+                  <option>Customer Success</option>
+                  <option>Finance</option>
+                  <option>Operations</option>
+                  <option>People</option>
+                </select>
+              </div>
+              <div class="filter-group">
+                <small>Status</small>
+                <select v-model="selectedStatus">
+                  <option>All</option>
+                  <option>Present</option>
+                  <option>On leave</option>
+                  <option>Remote</option>
+                  <option>Late</option>
+                  <option>Off</option>
+                </select>
+              </div>
+              <button class="text-button" type="button" @click="resetFilters">Reset filters</button>
+            </div>
+          </div>
         </div>
       </header>
       <div class="people-table table-scroll">
@@ -75,6 +106,7 @@
       </div>
     </article>
 
+    <!-- Profile Drawer -->
     <Transition name="slide">
       <aside v-if="selected" class="profile-drawer">
         <button class="modal-close" type="button" aria-label="Close" @click="selected = null"><Icon name="close" /></button>
@@ -89,22 +121,72 @@
           <div><small>Manager</small><strong>{{ selected.manager || 'Arjun Mehta' }}</strong></div>
         </div>
         <button class="primary-button" type="button" @click="$emit('profile', selected)">View full profile <Icon name="arrow" /></button>
-        <button class="secondary-button" type="button" @click="$emit('toast', `Email client opened for ${selected.email}`)"><Icon name="mail" /> Send email</button>
+        <button class="secondary-button" type="button" @click="sendEmail(selected.email)"><Icon name="mail" /> Send email</button>
       </aside>
+    </Transition>
+
+    <!-- Add Employee Modal -->
+    <Transition name="fade">
+      <div v-if="addModalOpen" class="modal-backdrop" @click.self="addModalOpen = false">
+        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="add-employee-title">
+          <button class="modal-close" type="button" aria-label="Close" @click="addModalOpen = false"><Icon name="close" /></button>
+          <span class="section-kicker">New onboarding</span>
+          <h2 id="add-employee-title">Add Employee</h2>
+          <form @submit.prevent="createEmployee">
+            <div class="form-grid">
+              <label>First name<input v-model="newForm.firstName" required placeholder="e.g. Arjun" /></label>
+              <label>Last name<input v-model="newForm.lastName" required placeholder="e.g. Kapoor" /></label>
+              <label>Employee ID<input v-model="newForm.employeeId" placeholder="EMP1121 (auto if blank)" /></label>
+              <label>Work email<input v-model="newForm.email" type="email" placeholder="arjun.kapoor@aria.com" /></label>
+              <label>Department
+                <select v-model="newForm.department">
+                  <option>Engineering</option>
+                  <option>Product</option>
+                  <option>Customer Success</option>
+                  <option>Finance</option>
+                  <option>Operations</option>
+                  <option>People</option>
+                </select>
+              </label>
+              <label>Role / Job title<input v-model="newForm.role" required placeholder="e.g. QA Engineer" /></label>
+              <label>Location<input v-model="newForm.location" placeholder="New Delhi" /></label>
+            </div>
+            <div class="modal-actions" style="margin-top: 1.5rem;">
+              <button class="secondary-button" type="button" @click="addModalOpen = false">Cancel</button>
+              <button class="primary-button" type="submit" :disabled="creating">{{ creating ? 'Creating...' : 'Create Employee' }} <Icon name="check" /></button>
+            </div>
+          </form>
+        </section>
+      </div>
     </Transition>
   </section>
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from "vue"
+import { computed, onMounted, reactive, ref } from "vue"
 import Icon from "./Icon.vue"
 import { employeeApi } from "../api.js"
 
-defineEmits(["toast", "profile"])
+const emit = defineEmits(["toast", "profile"])
 const query = ref("")
 const selected = ref(null)
 const people = ref([])
 const summary = ref({})
+const filterOpen = ref(false)
+const selectedDept = ref("All")
+const selectedStatus = ref("All")
+const addModalOpen = ref(false)
+const creating = ref(false)
+
+const newForm = reactive({
+  firstName: "",
+  lastName: "",
+  employeeId: "",
+  email: "",
+  department: "Engineering",
+  role: "Software Engineer",
+  location: "New Delhi"
+})
 
 async function loadPeopleData() {
   try {
@@ -126,9 +208,49 @@ onMounted(() => {
 const filteredPeople = computed(() => {
   return people.value.filter((person) => {
     const text = `${person.name} ${person.jobTitle || ''} ${person.department || ''} ${person.employeeId || ''}`.toLowerCase()
-    return text.includes(query.value.toLowerCase())
+    const matchesQuery = text.includes(query.value.toLowerCase())
+    const matchesDept = selectedDept.value === "All" || person.department === selectedDept.value
+    const matchesStatus = selectedStatus.value === "All" || (person.status || "Present") === selectedStatus.value
+    return matchesQuery && matchesDept && matchesStatus
   })
 })
+
+function resetFilters() {
+  selectedDept.value = "All"
+  selectedStatus.value = "All"
+  filterOpen.value = false
+}
+
+function sendEmail(email) {
+  if (email) {
+    window.location.href = `mailto:${email}`
+    emit("toast", `Opening email client for ${email}`)
+  }
+}
+
+async function createEmployee() {
+  creating.value = true
+  try {
+    const created = await employeeApi.create(newForm)
+    addModalOpen.value = false
+    emit("toast", `${created.name || 'New employee'} added to database`)
+    // Reset form
+    Object.assign(newForm, {
+      firstName: "",
+      lastName: "",
+      employeeId: "",
+      email: "",
+      department: "Engineering",
+      role: "Software Engineer",
+      location: "New Delhi"
+    })
+    loadPeopleData()
+  } catch (err) {
+    emit("toast", err.message || "Failed to create employee")
+  } finally {
+    creating.value = false
+  }
+}
 
 function initials(name = "") {
   return (name || "").split(" ").filter(Boolean).map((part) => part[0]).join("") || "EM"

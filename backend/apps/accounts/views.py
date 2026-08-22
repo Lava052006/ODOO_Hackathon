@@ -7,6 +7,8 @@ from django.utils import timezone
 from datetime import date
 from .models import User, Document, OTPVerification
 from .serializers import UserSerializer, SigninSerializer, SignupSerializer, VerifyOTPSerializer, DocumentSerializer
+from apps.payroll.models import SalaryStructure
+from apps.attendance.models import AttendanceRecord
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
@@ -90,6 +92,7 @@ def verify_otp_view(request):
     if created:
         user.set_password(password)
         user.save()
+        SalaryStructure.objects.get_or_create(employee=user)
     
     login(request, user)
     userData = UserSerializer(user).data
@@ -122,6 +125,57 @@ class EmployeeViewSet(viewsets.ModelViewSet):
             'documents',
             Prefetch('attendances', queryset=AttendanceRecord.objects.filter(date=today), to_attr='today_attendance')
         ).order_by('id')
+
+    def create(self, request, *args, **kwargs):
+        data = request.data
+        name = data.get('name', '').strip()
+        parts = name.split(' ', 1) if name else ['', '']
+        first_name = data.get('firstName') or parts[0] or 'New'
+        last_name = data.get('lastName') or (parts[1] if len(parts) > 1 else '') or 'Employee'
+        email = data.get('email', '').strip().lower()
+        employee_id = (data.get('employeeId') or f"EMP{User.objects.count() + 1000}").strip().upper()
+        department = data.get('department', 'Engineering')
+        job_title = data.get('role') or data.get('jobTitle', 'Software Engineer')
+        location = data.get('location', 'New Delhi')
+        
+        if not email:
+            email = f"{first_name.lower()}.{last_name.lower()}@aria.com"
+        
+        if User.objects.filter(email__iexact=email).exists():
+            return Response({'error': 'An employee with this email already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+        if User.objects.filter(employee_id__iexact=employee_id).exists():
+            return Response({'error': 'An employee with this ID already exists.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        user = User.objects.create(
+            username=email,
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            employee_id=employee_id,
+            role='employee',
+            department=department,
+            job_title=job_title,
+            location=location,
+            avatar_color='teal',
+            joining_date=date(2026, 8, 22),
+            is_probation=True
+        )
+        user.set_password('Aria@2026')
+        user.save()
+        
+        # Default salary & attendance
+        SalaryStructure.objects.create(employee=user, basic=50000, hra=15000, special=10000, other=3000, deductions=9000)
+        AttendanceRecord.objects.create(
+            employee=user,
+            date=date(2026, 8, 22),
+            status='Present',
+            tone='protected',
+            check_in='09:00',
+            work_hours='0h 01m',
+            location=location
+        )
+        
+        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['get'])
     def summary(self, request):

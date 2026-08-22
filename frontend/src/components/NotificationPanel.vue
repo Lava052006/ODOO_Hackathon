@@ -15,9 +15,20 @@
           <strong>{{ unread }} unread</strong>
           <button class="text-button" type="button" @click="markAllRead">Mark all as read</button>
         </div>
-        <button v-for="item in notifications" :key="item.id" class="notification-item" :class="{ unread: !item.read }" type="button" @click="item.read = true">
+        <button
+          v-for="item in notifications"
+          :key="item.id"
+          class="notification-item"
+          :class="{ unread: !item.read }"
+          type="button"
+          @click="handleNotificationClick(item)"
+        >
           <span class="metric-icon" :class="item.tone"><Icon :name="item.icon" /></span>
-          <span><strong>{{ item.title }}</strong><small>{{ item.detail }}</small><time>{{ item.time }}</time></span>
+          <span>
+            <strong>{{ item.title }}</strong>
+            <small>{{ item.detail }}</small>
+            <time>{{ item.time }}</time>
+          </span>
           <i v-if="!item.read"></i>
         </button>
         <div v-if="!notifications.length" class="empty-state" style="padding: 2rem 0;">
@@ -49,7 +60,7 @@ import { computed, onMounted, ref } from "vue"
 import Icon from "./Icon.vue"
 import { coreApi } from "../api.js"
 
-const emit = defineEmits(["close", "toast", "read"])
+const emit = defineEmits(["close", "toast", "read", "navigate"])
 const tab = ref("inbox")
 const notifications = ref([])
 const preferences = ref([
@@ -74,6 +85,23 @@ onMounted(() => {
 })
 
 const unread = computed(() => notifications.value.filter((item) => !item.read).length)
+
+function handleNotificationClick(item) {
+  item.read = true
+  emit("close")
+  const title = (item.title || "").toLowerCase()
+  if (title.includes("leave") || title.includes("time off")) {
+    emit("navigate", "Time off")
+  } else if (title.includes("payroll")) {
+    emit("navigate", "Payroll")
+  } else if (title.includes("roster") || title.includes("shift")) {
+    emit("navigate", "Roster")
+  } else if (title.includes("attendance") || title.includes("check-in")) {
+    emit("navigate", "Attendance")
+  } else {
+    emit("navigate", "Command centre")
+  }
+}
 
 async function markAllRead() {
   notifications.value.forEach((item) => { item.read = true })

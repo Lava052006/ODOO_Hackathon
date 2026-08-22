@@ -148,3 +148,293 @@ h2 { margin-bottom: 0; font-size: 20px; letter-spacing: -.025em; }
 @media(max-width:520px){.auth-story{min-height:300px;padding:24px}.auth-story-copy{margin:42px 0}.auth-story-copy h1{font-size:40px}.auth-story-copy>p:last-child{font-size:12px}.auth-proof{display:none}.auth-two,.profile-form-grid,.salary-lines,.salary-editor-grid{grid-template-columns:1fr}.profile-form-grid .full{grid-column:auto}.auth-form-card h2{font-size:29px}.demo-credentials button{align-items:flex-start;flex-direction:column;gap:3px}.profile-hero{padding:20px 16px}.profile-hero>.secondary-button{width:100%}.profile-section>header{align-items:flex-start;flex-direction:column}.salary-summary{grid-template-columns:1fr}.salary-summary>div+div{border-left:0;border-top:1px solid var(--line)}.payslip-row{grid-template-columns:32px 1fr}.payslip-row>button{grid-column:1/-1}.profile-actions{padding:12px 16px}.notification-panel{padding:20px 16px}}
 
 .employee-grid{min-width:0}.employee-grid>.surface{min-width:0;overflow:hidden}.week-table{max-width:100%}.my-request{grid-template-columns:32px minmax(0,1fr) auto}
+
+/* Interactive Enhancements */
+.filter-dropdown-wrap {
+  position: relative;
+  display: inline-block;
+}
+
+.filter-badge {
+  color: var(--amber);
+  margin-left: 0.35rem;
+  font-size: 0.75rem;
+}
+
+.filter-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  z-index: 50;
+  min-width: 220px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  background: var(--navy-800, #141b2d);
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.filter-group small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.filter-group select {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.filter-group select option {
+  background: #141b2d;
+  color: #fff;
+}
+
+.calendar-avatar-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--coral, #f26d6d);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.calendar-avatar-chip:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 8px rgba(242, 109, 109, 0.6);
+}
+
+.highlighted-row {
+  background: rgba(81, 198, 181, 0.12) !important;
+  border-left: 3px solid var(--teal) !important;
+  animation: pulseHighlight 2s infinite ease-in-out;
+}
+
+@keyframes pulseHighlight {
+  0%, 100% { background: rgba(81, 198, 181, 0.12); }
+  50% { background: rgba(81, 198, 181, 0.25); }
+}
+
+
+.today-row {
+  background: rgba(255, 191, 57, 0.08);
+}
+
+/* Employee Attendance Calendar Modal */
+.attendance-calendar-modal {
+  max-width: 780px !important;
+  width: 95vw;
+}
+
+.calendar-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.calendar-view-toggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.calendar-view-toggle button {
+  background: transparent;
+  border: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.calendar-view-toggle button.active {
+  background: var(--teal);
+  color: #0d1322;
+}
+
+.calendar-mini-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding: 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.calendar-mini-stats div {
+  display: flex;
+  flex-direction: column;
+}
+
+.calendar-mini-stats small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+}
+
+.calendar-mini-stats strong {
+  font-size: 1.15rem;
+  color: #fff;
+  margin-top: 0.15rem;
+}
+
+.calendar-filters-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.calendar-filters-row span {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.filter-pill {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ddd;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.filter-pill.active, .filter-pill:hover {
+  background: var(--teal);
+  color: #0d1322;
+  border-color: var(--teal);
+  font-weight: 600;
+}
+
+.calendar-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.85rem;
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.calendar-day-card {
+  padding: 0.85rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.calendar-day-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(81, 198, 181, 0.4);
+}
+
+.calendar-day-card.today-card {
+  border: 1.5px solid var(--amber) !important;
+  background: rgba(255, 191, 57, 0.06);
+}
+
+.calendar-day-card.future-card {
+  opacity: 0.6;
+  border-style: dashed;
+}
+
+.card-date-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-date-row strong {
+  font-size: 0.9rem;
+  color: #fff;
+}
+
+.card-timing-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.punch-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.punch-times b {
+  color: #fff;
+}
+
+.duration-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.duration-row small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.duration-row strong {
+  color: var(--teal);
+  font-size: 0.85rem;
+}
+
+.card-loc-footer {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+}
+
+.dashed-legend {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.5);
+  margin-right: 0.35rem;
+}
+

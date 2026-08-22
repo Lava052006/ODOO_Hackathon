@@ -23,10 +23,10 @@
     </article>
 
     <div class="employee-quick-grid">
-      <button type="button" @click="activePanel='attendance'">
+      <button type="button" @click="openAttendanceCalendar">
         <span><Icon name="calendar" /></span>
-        <strong>My attendance</strong>
-        <small>View weekly attendance</small>
+        <strong>Attendance Calendar</strong>
+        <small>View interactive schedule</small>
         <Icon name="chevron" />
       </button>
       <button type="button" @click="$emit('leave')">
@@ -35,16 +35,16 @@
         <small>Apply for leave or WFH</small>
         <Icon name="chevron" />
       </button>
-      <button type="button" @click="$emit('profile','salary')">
+      <button type="button" @click="$emit('profile', 'salary')">
         <span><Icon name="rupee" /></span>
         <strong>My salary</strong>
         <small>View payslips and earnings</small>
         <Icon name="chevron" />
       </button>
-      <button type="button" @click="$emit('profile','personal')">
+      <button type="button" @click="$emit('profile', 'personal')">
         <span><Icon name="user" /></span>
         <strong>My profile</strong>
-        <small>Update your information</small>
+        <small>Update contact information</small>
         <Icon name="chevron" />
       </button>
     </div>
@@ -56,8 +56,8 @@
           <span class="status protected">On track</span>
         </header>
         <div class="week-table">
-          <div v-for="day in week" :key="day.name" :class="{ today: day.today }">
-            <small>{{ day.name }}</small>
+          <div v-for="day in week" :key="day.date || day.dayNum" :class="{ today: day.today }">
+            <small>{{ day.dayName || day.name }} {{ day.dayNum ? `${day.dayNum} Aug` : '' }}</small>
             <strong>{{ day.status }}</strong>
             <span>{{ day.hours }}</span>
           </div>
@@ -66,72 +66,159 @@
 
       <article class="surface">
         <header class="section-heading">
-          <div><span class="section-kicker">Next up</span><h2>My requests</h2></div>
+          <div><span class="section-kicker">Status & Tracking</span><h2>My requests</h2></div>
           <button class="text-button" type="button" @click="$emit('leave')">New request <Icon name="plus" /></button>
         </header>
-        <div class="my-request">
-          <span class="metric-icon"><Icon name="leave" /></span>
-          <span><strong>Paid leave</strong><small>25–27 Aug · 3 days</small></span>
-          <span class="status pending">Pending</span>
+        <div v-if="myRequests.length" class="my-requests-list">
+          <div v-for="req in myRequests" :key="req.id" class="my-request">
+            <span class="metric-icon"><Icon :name="req.leave_type === 'Work from home' ? 'building' : 'leave'" /></span>
+            <span><strong>{{ req.leave_type || 'Leave' }}</strong><small>{{ req.range }} · {{ req.reason }}</small></span>
+            <span class="status" :class="req.status === 'approved' ? 'protected' : req.status === 'rejected' ? 'risk' : 'pending'">{{ req.status }}</span>
+          </div>
         </div>
-        <div class="my-request">
-          <span class="metric-icon"><Icon name="rupee" /></span>
-          <span><strong>Travel expense</strong><small>₹2,800 · Submitted 19 Aug</small></span>
-          <span class="status protected">Approved</span>
+        <div v-else class="empty-state" style="padding: 1.5rem 0;">
+          <span><Icon name="check" /></span>
+          <p>No active leave requests.</p>
         </div>
       </article>
     </div>
 
-    <article v-if="activePanel" class="surface employee-detail">
-      <button class="modal-close" type="button" aria-label="Close" @click="activePanel=''"><Icon name="close" /></button>
-      <span class="section-kicker">{{ activePanel }}</span>
-      <h2>{{ panelTitle }}</h2>
-      <p>{{ panelCopy }}</p>
-      <button class="primary-button" type="button" @click="$emit('toast',`${panelTitle} opened`)">Continue <Icon name="arrow" /></button>
-    </article>
+    <!-- Attendance Interactive Calendar Modal -->
+    <Transition name="fade">
+      <div v-if="attendanceModalOpen" class="modal-backdrop" @click.self="attendanceModalOpen = false">
+        <section class="modal attendance-calendar-modal" role="dialog" aria-modal="true" aria-labelledby="attendance-calendar-title">
+          <button class="modal-close" type="button" aria-label="Close" @click="attendanceModalOpen = false"><Icon name="close" /></button>
+          
+          <header class="calendar-modal-header">
+            <div>
+              <span class="section-kicker">Attendance Calendar</span>
+              <h2 id="attendance-calendar-title">August 2026 Workday Log</h2>
+              <p>Review check-in timestamps, working durations and location punches.</p>
+            </div>
+            
+            <div class="calendar-view-toggle">
+              <button type="button" :class="{ active: calendarViewMode === 'week' }" @click="calendarViewMode = 'week'">This Week</button>
+              <button type="button" :class="{ active: calendarViewMode === 'month' }" @click="calendarViewMode = 'month'">August Month</button>
+            </div>
+          </header>
+
+          <!-- Metrics summary -->
+          <div class="calendar-mini-stats">
+            <div><small>Present Days</small><strong>{{ stats.totalPresent || 16 }}</strong></div>
+            <div><small>Half-days</small><strong>{{ stats.totalHalfDay || 1 }}</strong></div>
+            <div><small>Remote Days</small><strong>{{ stats.totalRemote || 2 }}</strong></div>
+            <div><small>Total Logged</small><strong>{{ stats.totalHours || '148h' }}</strong></div>
+          </div>
+
+          <!-- Status Filters -->
+          <div class="calendar-filters-row">
+            <span>Filter by:</span>
+            <button
+              v-for="flt in ['All', 'Present', 'Remote', 'Half-day', 'Off']"
+              :key="flt"
+              type="button"
+              class="filter-pill"
+              :class="{ active: activeStatusFilter === flt }"
+              @click="activeStatusFilter = flt"
+            >
+              {{ flt }}
+            </button>
+          </div>
+
+          <!-- Calendar Days Grid -->
+          <div class="calendar-cards-grid">
+            <div
+              v-for="item in displayedCalendarDays"
+              :key="item.date"
+              class="calendar-day-card surface"
+              :class="{ 'today-card': item.today, 'future-card': item.isFuture }"
+            >
+              <div class="card-date-row">
+                <strong>{{ item.dayName }} {{ item.dayNum }} Aug</strong>
+                <span
+                  class="status"
+                  :class="item.status === 'Present' ? 'protected' : item.status === 'Half-day' ? 'warn' : item.status === 'Remote' ? 'protected' : 'pending'"
+                >
+                  {{ item.status }}
+                </span>
+              </div>
+              
+              <div class="card-timing-info">
+                <div class="punch-times">
+                  <span><Icon name="clock" /> In: <b>{{ item.in }}</b></span>
+                  <span>Out: <b>{{ item.out }}</b></span>
+                </div>
+                <div class="duration-row">
+                  <small>Duration:</small>
+                  <strong>{{ item.hours }}</strong>
+                </div>
+              </div>
+
+              <div class="card-loc-footer">
+                <Icon name="building" />
+                <small>{{ item.location || 'New Delhi' }}</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-actions" style="margin-top: 1.5rem;">
+            <button class="primary-button" type="button" @click="attendanceModalOpen = false">Done</button>
+          </div>
+        </section>
+      </div>
+    </Transition>
   </section>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from "vue"
 import Icon from "./Icon.vue"
-import { attendanceApi } from "../api.js"
+import { attendanceApi, leavesApi } from "../api.js"
 
 const props = defineProps({ user: { type: Object, required: true } })
 const emit = defineEmits(["leave", "toast", "profile"])
 const checkedIn = ref(true)
 const checkInTime = ref("09:04")
 const loading = ref(false)
-const activePanel = ref("")
-const week = ref([
-  { name: "Mon", status: "Present", hours: "9h 01m" },
-  { name: "Tue", status: "Present", hours: "9h 08m" },
-  { name: "Wed", status: "Half-day", hours: "4h 05m" },
-  { name: "Thu", status: "Present", hours: "8h 58m" },
-  { name: "Fri", status: "Present", hours: "6h 42m", today: true },
-  { name: "Sat", status: "Off", hours: "—" },
-  { name: "Sun", status: "Off", hours: "—" }
-])
+const attendanceModalOpen = ref(false)
+const calendarViewMode = ref("week") // 'week' or 'month'
+const activeStatusFilter = ref("All")
+
+const myRequests = ref([])
+const week = ref([])
+const fullCalendar = ref([])
+const stats = ref({})
 
 const firstName = computed(() => (props.user.name || props.user.first_name || props.user.username || "Employee").split(" ")[0])
-const panelTitle = computed(() => ({ attendance: "Weekly attendance", salary: "Salary and payslips", profile: "Personal profile" }[activePanel.value] || ""))
-const panelCopy = computed(() => ({
-  attendance: "You have completed 37h 54m this week with no unresolved exceptions.",
-  salary: "Your July payslip is ready. Net pay: ₹74,320.",
-  profile: "Your contact and employment information is synchronized with PostgreSQL."
-}[activePanel.value] || ""))
 
-async function loadWeek() {
+async function loadData() {
   try {
-    const data = await attendanceApi.getMyWeek()
-    if (data.week) week.value = data.week
+    const [attData, leavesData] = await Promise.all([
+      attendanceApi.getMyWeek(),
+      leavesApi.getDashboard("all")
+    ])
+    if (attData.week) week.value = attData.week
+    if (attData.calendar) fullCalendar.value = attData.calendar
+    if (attData.stats) stats.value = attData.stats
+    if (leavesData.requests) myRequests.value = leavesData.requests.slice(0, 5)
   } catch (err) {
-    console.error("Failed to load employee week", err)
+    console.error("Failed to load employee data", err)
   }
 }
 
 onMounted(() => {
-  loadWeek()
+  loadData()
+})
+
+function openAttendanceCalendar() {
+  attendanceModalOpen.value = true
+  loadData()
+}
+
+const displayedCalendarDays = computed(() => {
+  const baseList = calendarViewMode.value === "week" ? week.value : fullCalendar.value
+  if (activeStatusFilter.value === "All") return baseList
+  return baseList.filter((d) => (d.status || "").toLowerCase() === activeStatusFilter.value.toLowerCase())
 })
 
 async function toggleCheckin() {
@@ -141,7 +228,7 @@ async function toggleCheckin() {
     checkedIn.value = res.checkedIn
     if (res.checkInTime) checkInTime.value = res.checkInTime
     emit("toast", res.message || (checkedIn.value ? "Checked in successfully" : "Checked out successfully"))
-    loadWeek()
+    loadData()
   } catch (err) {
     emit("toast", err.message || "Failed to toggle check-in")
   } finally {

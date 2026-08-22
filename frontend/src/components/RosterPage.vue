@@ -7,7 +7,7 @@
         <p>Build the week around skills, workload and the people who make it work.</p>
       </div>
       <div class="header-actions">
-        <button class="secondary-button" type="button" @click="$emit('toast', 'Roster schedule exported')"><Icon name="download" /> Export</button>
+        <button class="secondary-button" type="button" @click="exportRosterCsv"><Icon name="download" /> Export</button>
         <button class="primary-button" type="button" @click="publish"><Icon name="check" /> {{ published ? 'Published' : 'Publish roster' }}</button>
       </div>
     </header>
@@ -22,9 +22,12 @@
       <strong>{{ published ? '100%' : `${coveragePercent}%` }}</strong>
     </div>
 
-    <article class="surface roster-surface">
+    <article id="roster-table-section" class="surface roster-surface">
       <header class="section-heading table-heading">
-        <div><span class="section-kicker">Weekly schedule</span><h2>Team roster</h2></div>
+        <div>
+          <span class="section-kicker">Weekly schedule</span>
+          <h2>Team roster <small v-if="highlightSupport" style="color: var(--teal); font-size: 0.9rem;">(Highlighted: Cover Candidates)</small></h2>
+        </div>
         <div class="shift-legend">
           <span><i class="morning"></i> Morning</span>
           <span><i class="evening"></i> Evening</span>
@@ -38,7 +41,12 @@
           <span>Employee</span>
           <span v-for="day in days" :key="day.name"><b>{{ day.name }}</b><small>{{ day.date }} Aug</small></span>
         </div>
-        <div v-for="person in people" :key="person.employeeId || person.name" class="roster-row">
+        <div
+          v-for="person in people"
+          :key="person.employeeId || person.name"
+          class="roster-row"
+          :class="{ 'highlighted-row': highlightSupport && (person.role === 'Customer Success' || person.role === 'Support') }"
+        >
           <span class="employee-cell">
             <span class="avatar" :class="person.color">{{ person.initials }}</span>
             <span><strong>{{ person.name }}</strong><small>{{ person.role }}</small></span>
@@ -70,7 +78,7 @@
         <div class="gap-item">
           <span class="metric-icon warning"><Icon name="spark" /></span>
           <span><strong>Saturday evening · Support</strong><small>1 experienced specialist still needed</small></span>
-          <button class="text-button" type="button" @click="$emit('toast','Best-fit employees highlighted')">Find cover</button>
+          <button class="text-button" type="button" @click="findCover">Find cover</button>
         </div>
         <div class="gap-item safe">
           <span class="metric-icon"><Icon name="shield" /></span>
@@ -92,6 +100,7 @@ const coveragePercent = ref(98)
 const days = ref([])
 const people = ref([])
 const teams = ref([])
+const highlightSupport = ref(false)
 
 const base = {
   M: { code: "M", label: "Morning", type: "morning" },
@@ -142,5 +151,33 @@ async function publish() {
   } catch (err) {
     emit("toast", err.message || "Failed to publish roster")
   }
+}
+
+function findCover() {
+  highlightSupport.value = true
+  const el = document.getElementById("roster-table-section")
+  if (el) {
+    el.scrollIntoView({ behavior: "smooth" })
+    emit("toast", "Highlighted Support Specialists eligible for Saturday shift")
+  }
+}
+
+function exportRosterCsv() {
+  const header = "Employee ID,Name,Department," + days.value.map((d) => `${d.name} ${d.date} Aug`).join(",") + "\n"
+  const rows = people.value.map((p) => {
+    const shiftCodes = p.shifts.map((s) => s.code || "M").join(",")
+    return `"${p.employeeId}","${p.name}","${p.role}",${shiftCodes}`
+  })
+
+  const csvContent = header + rows.join("\n")
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = "ARIA-Roster-18-24-Aug-2026.csv"
+  link.click()
+  URL.revokeObjectURL(url)
+
+  emit("toast", "Roster schedule exported to CSV")
 }
 </script>
