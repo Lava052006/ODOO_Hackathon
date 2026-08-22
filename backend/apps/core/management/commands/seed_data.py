@@ -2,6 +2,7 @@ from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import date, timedelta
 import random
+from django.db import transaction
 from apps.accounts.models import User, Document
 from apps.attendance.models import AttendanceRecord
 from apps.leaves.models import LeaveRequest
@@ -12,6 +13,7 @@ from apps.core.models import Notification, NotificationPreference, ActivityEvent
 class Command(BaseCommand):
     help = 'Seeds PostgreSQL database with 120 realistic employees and full dynamic dataset'
 
+    @transaction.atomic
     def handle(self, *args, **kwargs):
         self.stdout.write('Seeding 120 employees and dynamic dataset in PostgreSQL...')
 
@@ -76,6 +78,10 @@ class Command(BaseCommand):
         locations = ["New Delhi", "Bengaluru", "Mumbai", "Pune", "Chennai", "Hyderabad"]
         colors = ["teal", "blue", "coral", "violet", "amber"]
 
+        # Cache hashed password for fast seeding
+        from django.contrib.auth.hashers import make_password
+        hashed_password = make_password('Aria@2026')
+
         all_employees = []
         # Create core employees
         for c in core_employees_data:
@@ -93,10 +99,12 @@ class Command(BaseCommand):
                     'avatar_color': c['avatar_color'],
                     'joining_date': date(2024, 4, 15),
                     'is_probation': c['probation'],
+                    'password': hashed_password,
                 }
             )
-            emp.set_password('Aria@2026')
-            emp.save()
+            if emp.password != hashed_password:
+                emp.password = hashed_password
+                emp.save()
             all_employees.append(emp)
 
             # Documents for Neha
@@ -145,10 +153,12 @@ class Command(BaseCommand):
                     'avatar_color': color,
                     'joining_date': join_date,
                     'is_probation': probation,
+                    'password': hashed_password,
                 }
             )
-            emp.set_password('Aria@2026')
-            emp.save()
+            if emp.password != hashed_password:
+                emp.password = hashed_password
+                emp.save()
             all_employees.append(emp)
 
         total_emp_list = list(User.objects.filter(role='employee'))
