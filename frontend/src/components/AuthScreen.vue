@@ -27,7 +27,7 @@
             <button class="primary-button dark auth-submit" type="submit" :disabled="loading">{{ loading ? 'Signing in...' : 'Sign in' }} <Icon name="arrow" /></button>
           </form>
           <div class="demo-credentials"><strong>Demo accounts</strong><button type="button" @click="useDemo('admin')"><span>HR Admin</span><code>admin@aria.com · Aria@2026</code></button><button type="button" @click="useDemo('employee')"><span>Employee</span><code>employee@aria.com · Aria@2026</code></button></div>
-          <p class="auth-switch">New to ARIA? <button type="button" @click="startSignup">Create an account</button></p>
+
         </template>
 
         <template v-else-if="screen === 'signup'">

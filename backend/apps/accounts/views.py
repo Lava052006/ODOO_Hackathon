@@ -111,9 +111,17 @@ def logout_view(request):
 
 
 class EmployeeViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.filter(role='employee').order_by('id')
     serializer_class = UserSerializer
     lookup_field = 'employee_id'
+
+    def get_queryset(self):
+        from apps.attendance.models import AttendanceRecord
+        from django.db.models import Prefetch
+        today = date(2026, 8, 22)
+        return User.objects.filter(role='employee').prefetch_related(
+            'documents',
+            Prefetch('attendances', queryset=AttendanceRecord.objects.filter(date=today), to_attr='today_attendance')
+        ).order_by('id')
 
     @action(detail=False, methods=['get'])
     def summary(self, request):

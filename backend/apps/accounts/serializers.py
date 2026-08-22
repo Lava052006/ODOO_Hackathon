@@ -38,6 +38,8 @@ class UserSerializer(serializers.ModelSerializer):
         return full_name if full_name else obj.username
 
     def get_status(self, obj):
+        if hasattr(obj, 'today_attendance') and obj.today_attendance:
+            return obj.today_attendance[0].status
         today = date(2026, 8, 22)
         att = AttendanceRecord.objects.filter(employee=obj, date=today).first()
         return att.status if att else 'Present'

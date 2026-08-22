@@ -67,7 +67,6 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': dj_database_url.config(
-        default=os.getenv('DATABASE_URL', 'postgres://postgres:@127.0.0.1:5432/aria_db'),
         conn_max_age=600,
         conn_health_checks=True,
     )
