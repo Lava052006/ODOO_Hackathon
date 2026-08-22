@@ -29,7 +29,7 @@
       <span class="avatar profile-avatar" :class="selected.color">{{ initials(selected.name) }}</span><h2>{{ selected.name }}</h2><p>{{ selected.role }} · {{ selected.department }}</p>
       <div class="profile-status"><i class="presence-dot present"></i> Active employee</div>
       <div class="profile-details"><div><small>Employee ID</small><strong>{{ selected.id }}</strong></div><div><small>Location</small><strong>{{ selected.location }}</strong></div><div><small>Joined</small><strong>{{ selected.joined }}</strong></div><div><small>Manager</small><strong>Arjun Mehta</strong></div></div>
-      <button class="primary-button" type="button" @click="$emit('toast', `Opening ${selected.name}'s profile`)">View full profile <Icon name="arrow" /></button>
+      <button class="primary-button" type="button" @click="$emit('profile', selected)">View full profile <Icon name="arrow" /></button>
       <button class="secondary-button" type="button"><Icon name="mail" /> Send email</button>
     </aside></Transition>
   </section>
@@ -38,7 +38,7 @@
 <script setup>
 import { computed, ref } from "vue"
 import Icon from "./Icon.vue"
-defineEmits(["toast"])
+defineEmits(["toast", "profile"])
 const query = ref("")
 const selected = ref(null)
 const people = [

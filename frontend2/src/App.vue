@@ -1,5 +1,6 @@
 <template>
-  <div class="app-shell" :class="{ 'employee-mode': mode === 'employee' }">
+  <AuthScreen v-if="!currentUser" @authenticated="handleAuthenticated" @toast="showToast" />
+  <div v-else class="app-shell" :class="{ 'employee-mode': mode === 'employee' }">
     <aside class="sidebar" :class="{ open: mobileMenu }">
       <button class="brand" type="button" @click="selectPage('Command centre')" aria-label="ARIA home">
         <span class="brand-mark" aria-hidden="true">
@@ -13,7 +14,7 @@
       </button>
 
       <nav class="main-nav" aria-label="Workspace navigation">
-        <button v-for="item in navItems" :key="item.label" type="button" :class="{ active: page === item.label }" @click="selectPage(item.label)">
+        <button v-for="item in availableNavItems" :key="item.label" type="button" :class="{ active: page === item.label }" @click="selectPage(item.label)">
           <Icon :name="item.icon" />
           <span>{{ item.label }}</span>
           <span v-if="item.count" class="nav-count">{{ item.count }}</span>
@@ -25,11 +26,12 @@
         <div><strong>Workspace healthy</strong><small>All systems aligned</small></div>
       </div>
 
-      <button class="admin-card" type="button" @click="mode = mode === 'admin' ? 'employee' : 'admin'">
-        <span class="avatar amber">AM</span>
-        <span><strong>Arjun Mehta</strong><small>{{ mode === 'admin' ? 'HR Administrator' : 'Software Engineer' }}</small></span>
+      <button class="admin-card" type="button" @click="openProfile(null, 'personal')">
+        <span class="avatar amber">{{ initials(currentUser.name) }}</span>
+        <span><strong>{{ currentUser.name }}</strong><small>{{ currentUser.role === 'admin' ? 'HR Administrator' : 'Employee self-service' }}</small></span>
         <Icon name="chevron" />
       </button>
+      <button class="logout-button" type="button" @click="logout"><Icon name="logout" /> Sign out</button>
     </aside>
     <button v-if="mobileMenu" class="scrim" type="button" aria-label="Close menu" @click="mobileMenu = false"></button>
 
@@ -38,19 +40,19 @@
         <button class="menu-button" type="button" aria-label="Open menu" @click="mobileMenu = true"><Icon name="menu" /></button>
         <div class="breadcrumb"><span>Workspace</span><b>/</b><strong>{{ page }}</strong></div>
         <div class="top-actions">
-          <button class="mode-switch" type="button" @click="mode = mode === 'admin' ? 'employee' : 'admin'">
+          <button v-if="isAdmin" class="mode-switch" type="button" @click="mode = mode === 'admin' ? 'employee' : 'admin'">
             <Icon :name="mode === 'admin' ? 'building' : 'user'" />
             {{ mode === 'admin' ? 'Admin view' : 'Employee view' }}
           </button>
           <button class="live-chip" type="button"><span></span> Live HR workspace</button>
-          <button class="icon-button" type="button" aria-label="Notifications" @click="showToast('You are all caught up')"><Icon name="bell" /><i></i></button>
-          <span class="avatar navy">AM</span>
+          <button class="icon-button" type="button" aria-label="Notifications" @click="notificationsOpen = true"><Icon name="bell" /><i v-if="notificationsUnread"></i></button>
+          <button class="avatar navy avatar-button" type="button" aria-label="Open profile" @click="openProfile(null, 'personal')">{{ initials(currentUser.name) }}</button>
         </div>
       </header>
 
       <div class="page-body">
         <template v-if="mode === 'employee'">
-          <EmployeeHome @leave="leaveDialog = true" @toast="showToast" />
+          <EmployeeHome :user="currentUser" @leave="leaveDialog = true" @toast="showToast" @profile="openProfile(null, $event)" />
         </template>
 
         <template v-else-if="page === 'Command centre'">
@@ -124,7 +126,7 @@
           </section>
         </template>
 
-        <PeoplePage v-else-if="page === 'People'" @toast="showToast" />
+        <PeoplePage v-else-if="page === 'People'" @toast="showToast" @profile="openProfile($event, 'personal')" />
         <AttendancePage v-else-if="page === 'Attendance'" @toast="showToast" />
         <TimeOffPage v-else-if="page === 'Time off'" :requests="pendingRequests" @decision="openDecision" @leave="leaveDialog = true" />
         <PayrollPage v-else-if="page === 'Payroll'" @toast="showToast" />
@@ -152,20 +154,26 @@
         <section class="modal" role="dialog" aria-modal="true" aria-labelledby="leave-title">
           <button class="modal-close" type="button" aria-label="Close" @click="leaveDialog = false"><Icon name="close" /></button>
           <span class="section-kicker">Time off</span><h2 id="leave-title">Request leave</h2>
-          <div class="form-grid"><label>Leave type<select v-model="leaveForm.type"><option>Paid leave</option><option>Sick leave</option><option>Work from home</option></select></label><label>From<input v-model="leaveForm.from" type="date" /></label><label>To<input v-model="leaveForm.to" type="date" /></label><label class="full">Reason<textarea v-model="leaveForm.reason" rows="3" placeholder="A short reason helps your manager decide"></textarea></label></div>
+          <div class="form-grid"><label>Leave type<select v-model="leaveForm.type"><option>Paid leave</option><option>Sick leave</option><option>Unpaid leave</option><option>Work from home</option></select></label><label>From<input v-model="leaveForm.from" type="date" /></label><label>To<input v-model="leaveForm.to" type="date" /></label><label class="full">Reason<textarea v-model="leaveForm.reason" rows="3" placeholder="A short reason helps your manager decide"></textarea></label></div>
           <div class="impact-note"><Icon name="shield" /><span><strong>Your team remains covered.</strong><small>Estimated balance after request: 7 paid days.</small></span></div>
           <div class="modal-actions"><button class="secondary-button" type="button" @click="leaveDialog = false">Cancel</button><button class="primary-button" type="button" @click="submitLeave">Submit request <Icon name="arrow" /></button></div>
         </section>
       </div>
     </Transition>
 
+    <Transition name="fade"><ProfilePanel v-if="profileOpen" :person="profilePerson" :is-admin="isAdmin" :initial-tab="profileTab" @close="profileOpen=false" @toast="showToast" /></Transition>
+    <Transition name="fade"><NotificationPanel v-if="notificationsOpen" @close="notificationsOpen=false" @toast="showToast" @read="notificationsUnread=false" /></Transition>
+
     <Transition name="toast"><div v-if="toast" class="toast" role="status"><span><Icon name="check" /></span>{{ toast }}</div></Transition>
   </div>
 </template>
 
 <script setup>
-import { ref } from "vue"
+import { computed, ref } from "vue"
 import Icon from "./components/Icon.vue"
+import AuthScreen from "./components/AuthScreen.vue"
+import ProfilePanel from "./components/ProfilePanel.vue"
+import NotificationPanel from "./components/NotificationPanel.vue"
 import PeoplePage from "./components/PeoplePage.vue"
 import AttendancePage from "./components/AttendancePage.vue"
 import TimeOffPage from "./components/TimeOffPage.vue"
@@ -173,15 +181,23 @@ import PayrollPage from "./components/PayrollPage.vue"
 import RosterPage from "./components/RosterPage.vue"
 import EmployeeHome from "./components/EmployeeHome.vue"
 
+const savedSession = sessionStorage.getItem("aria-session")
+const currentUser = ref(savedSession ? JSON.parse(savedSession) : null)
 const page = ref("Command centre")
-const mode = ref("admin")
+const mode = ref(currentUser.value?.role === "employee" ? "employee" : "admin")
 const mobileMenu = ref(false)
 const reviewPanel = ref(false)
 const decisionDialog = ref(null)
 const decisionComment = ref("")
 const leaveDialog = ref(false)
 const toast = ref("")
+const profileOpen = ref(false)
+const profilePerson = ref(null)
+const profileTab = ref("personal")
+const notificationsOpen = ref(false)
+const notificationsUnread = ref(true)
 const leaveForm = ref({ type: "Paid leave", from: "2026-08-25", to: "2026-08-27", reason: "Family event" })
+const isAdmin = computed(() => currentUser.value?.role === "admin")
 
 const navItems = [
   { label: "Command centre", icon: "command" },
@@ -191,6 +207,7 @@ const navItems = [
   { label: "Payroll", icon: "rupee", count: 12 },
   { label: "Roster", icon: "calendar" },
 ]
+const availableNavItems = computed(() => isAdmin.value ? navItems : [])
 
 const journey = [
   { label: "People", note: "Team ready" },
@@ -226,6 +243,9 @@ const activity = [
 
 function initials(name) { return name.split(" ").map((part) => part[0]).join("") }
 function selectPage(value) { page.value = value; mode.value = "admin"; mobileMenu.value = false; window.scrollTo({ top: 0, behavior: "smooth" }) }
+function handleAuthenticated(user) { currentUser.value = user; mode.value = user.role === "admin" ? "admin" : "employee"; sessionStorage.setItem("aria-session", JSON.stringify(user)); if (user.newlyVerified) showToast("Email verified — your ARIA account is ready") }
+function logout() { sessionStorage.removeItem("aria-session"); currentUser.value = null; mode.value = "admin"; page.value = "Command centre"; mobileMenu.value = false; showToast("Signed out securely") }
+function openProfile(person = null, tab = "personal") { profilePerson.value = person || { name: currentUser.value.name, email: currentUser.value.email, employeeId: currentUser.value.employeeId, role: currentUser.value.role === "admin" ? "HR Administrator" : "Software Engineer", department: currentUser.value.role === "admin" ? "People" : "Engineering", location: "New Delhi" }; profileTab.value = tab; profileOpen.value = true }
 function openDecision(request) { decisionDialog.value = request; decisionComment.value = "" }
 function resolveDecision(state) {
   const name = decisionDialog.value.name
