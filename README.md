@@ -1,49 +1,62 @@
-# Frappe HR (HRMS)
+# ARIA — Workday Command Centre & HR Management System
 
-This project is an open-source Human Resources and Payroll application built on the Frappe framework. It features a complete Python backend and a modern Vue 3 frontend for roster and shift management.
+ARIA is a modern, unified Human Resource Management & Workday Command Centre system built with a **Vue 3** frontend and a **Django REST + PostgreSQL** backend.
 
-## Project Structure
-- `backend/`: The core Python Frappe app handling HR and Payroll logic.
-- `roster/`: A Vue.js Single-Page Application (SPA) for interactive Shift Assignment and Roster visualization.
-- `docker/`: Contains the Docker environment setup for running the project locally.
+---
 
-## Docker Setup Instructions
+## Quick Start (One-Click Setup)
 
-This project is fully containerized and uses **PostgreSQL** as the primary database. Follow these steps to get the application running on your local machine:
-
-### Prerequisites
-1. [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
-2. (Windows users) Ensure WSL2 is enabled and integrated with Docker Desktop.
-
-### 1. Start the Containers
-Open your terminal and navigate to the `docker` directory, then start the services:
+Run the automated startup assistant script from the project root:
 
 ```bash
-cd docker
-docker-compose up
+python start.py
 ```
-*(Note: You can add `-d` at the end to run it in the background)*
 
-### 2. Automatic Initialization
-The first time you start the containers, a script (`init.sh`) will automatically run in the background to:
-- Provision the internal PostgreSQL database.
-- Create a new Frappe site named `hrms.localhost`.
-- Install the HR app onto the site.
-- Enable developer mode and background workers.
+### What `start.py` does automatically:
+1. **PostgreSQL Check**: Detects or starts local PostgreSQL (`pgdata` cluster) on port 5432.
+2. **Virtual Environment**: Sets up `backend/.venv` and installs dependencies from `backend/requirements.txt`.
+3. **Database Schema & Seeding**: Creates `aria_db`, runs all migrations, and automatically seeds 120 employees, 7-day attendance logs, weekly roster shifts, salary structures, and leaves if unseeded.
+4. **Frontend Setup**: Installs Node packages via `pnpm` or `npm`.
+5. **Live Servers**: Concurrently runs the Django API (`http://127.0.0.1:8000/api/`) and the Vue Frontend (`http://localhost:5173/`).
 
-*Please wait a few minutes for the terminal logs to settle down as the installation completes.*
+---
 
-### 3. Access the Application
-Once the setup is finished and the server is running, you can access the application in your browser:
+## Manual Startup (Alternative)
 
-**URL:** [http://hrms.localhost:8000](http://hrms.localhost:8000)
+### 1. Backend Setup
+```bash
+cd backend
+python -m venv .venv
+.\.venv\Scripts\activate  # On Windows
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py seed_data
+python manage.py runserver 127.0.0.1:8000
+```
 
-*(Note: Most modern browsers automatically route `.localhost` domains to your local machine. If yours doesn't, simply add `127.0.0.1 hrms.localhost` to your computer's `hosts` file).*
+### 2. Frontend Setup
+```bash
+cd frontend
+pnpm install
+pnpm run dev
+```
 
-### 4. Default Credentials
-Use the following credentials to log in:
-- **Username:** `Administrator`
-- **Password:** `admin`
+---
 
-### Data Persistence
-Your PostgreSQL database files are securely stored inside a Docker Volume (`postgres-data`). This means you can safely stop the containers (`Ctrl+C` or `docker-compose stop`) without losing any of your data!
+## Demo Accounts
+
+| Role | Email | Password |
+| :--- | :--- | :--- |
+| **HR Administrator** | `admin@aria.com` | `Aria@2026` |
+| **Employee Self-Service** | `employee@aria.com` | `Aria@2026` |
+
+---
+
+## Architecture & Features
+
+- **Command Centre**: Real-time operational alignment, 7-day attendance signals, and pending approval queue.
+- **People**: Directory of 120 employees across 6 departments with live presence indicators.
+- **Attendance**: Real-time check-in/out tracker, exception management, and CSV export.
+- **Time Off**: Decision queue, capacity protections, and dynamic team away calendar.
+- **Payroll**: Pre-flight validation checks, salary structures, readiness gauge, and payslip generation.
+- **Roster**: Weekly shift matrix, department coverage analytics, and roster publishing.

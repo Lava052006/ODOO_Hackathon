@@ -9,6 +9,9 @@ hrms/docs/current
 node_modules/
 dist/
 __pycache__/
+.venv/
+backend/.env
+pgdata
 
 # build/
 .vscode

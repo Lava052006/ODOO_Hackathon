@@ -23,12 +23,12 @@
 
       <div class="workspace-health">
         <span class="health-dot"></span>
-        <div><strong>Workspace healthy</strong><small>All systems aligned</small></div>
+        <div><strong>PostgreSQL Connected</strong><small>Live HR workspace active</small></div>
       </div>
 
       <button class="admin-card" type="button" @click="openProfile(null, 'personal')">
-        <span class="avatar amber">{{ initials(currentUser.name) }}</span>
-        <span><strong>{{ currentUser.name }}</strong><small>{{ currentUser.role === 'admin' ? 'HR Administrator' : 'Employee self-service' }}</small></span>
+        <span class="avatar amber">{{ initials(currentUser.name || currentUser.username) }}</span>
+        <span><strong>{{ currentUser.name || currentUser.username }}</strong><small>{{ currentUser.role === 'admin' ? 'HR Administrator' : 'Employee self-service' }}</small></span>
         <Icon name="chevron" />
       </button>
       <button class="logout-button" type="button" @click="logout"><Icon name="logout" /> Sign out</button>
@@ -40,13 +40,13 @@
         <button class="menu-button" type="button" aria-label="Open menu" @click="mobileMenu = true"><Icon name="menu" /></button>
         <div class="breadcrumb"><span>Workspace</span><b>/</b><strong>{{ page }}</strong></div>
         <div class="top-actions">
-          <button v-if="isAdmin" class="mode-switch" type="button" @click="mode = mode === 'admin' ? 'employee' : 'admin'">
+          <button v-if="isAdmin" class="mode-switch" type="button" @click="toggleMode">
             <Icon :name="mode === 'admin' ? 'building' : 'user'" />
             {{ mode === 'admin' ? 'Admin view' : 'Employee view' }}
           </button>
           <button class="live-chip" type="button"><span></span> Live HR workspace</button>
           <button class="icon-button" type="button" aria-label="Notifications" @click="notificationsOpen = true"><Icon name="bell" /><i v-if="notificationsUnread"></i></button>
-          <button class="avatar navy avatar-button" type="button" aria-label="Open profile" @click="openProfile(null, 'personal')">{{ initials(currentUser.name) }}</button>
+          <button class="avatar navy avatar-button" type="button" aria-label="Open profile" @click="openProfile(null, 'personal')">{{ initials(currentUser.name || currentUser.username) }}</button>
         </div>
       </header>
 
@@ -75,13 +75,14 @@
           <section class="command-grid">
             <article class="surface attention-card">
               <header class="section-heading"><div><span class="section-kicker">Decision queue</span><h2>Needs attention</h2></div><button type="button" class="text-button" @click="selectPage('Time off')">View all <Icon name="arrow" /></button></header>
-              <button v-for="request in pendingRequests" :key="request.name" class="person-request" type="button" @click="openDecision(request)">
+              <button v-for="request in pendingRequests" :key="request.id || request.name" class="person-request" type="button" @click="openDecision(request)">
                 <span class="avatar" :class="request.color">{{ initials(request.name) }}</span>
                 <span class="person-copy"><strong>{{ request.name }}</strong><small>{{ request.reason }}</small><em>Applied {{ request.applied }}</em></span>
                 <span class="status pending">Pending</span>
                 <Icon name="chevron" />
               </button>
-              <div class="queue-insight"><Icon name="spark" /><span><strong>2 decisions are time-sensitive</strong><small>Resolve before today’s 4 PM roster lock.</small></span></div>
+              <div v-if="!pendingRequests.length" class="empty-state" style="padding: 1rem 0;"><span><Icon name="check" /></span><p>All pending requests are reviewed.</p></div>
+              <div class="queue-insight"><Icon name="spark" /><span><strong>{{ pendingRequests.length }} decisions waiting</strong><small>Resolve before today’s 4 PM roster lock.</small></span></div>
             </article>
 
             <article class="surface alignment-card">
@@ -94,10 +95,10 @@
                 <button type="button" aria-label="Review" @click="selectPage(row.page)"><Icon name="chevron" /></button>
               </div>
               <div class="mini-metrics">
-                <div><Icon name="users" /><span><small>Active employees</small><strong>120</strong></span></div>
-                <div><Icon name="leave" /><span><small>On leave today</small><strong>4</strong></span></div>
-                <div><Icon name="clock" /><span><small>Weekly off today</small><strong>8</strong></span></div>
-                <div><Icon name="user-plus" /><span><small>New hires · Aug</small><strong>5</strong></span></div>
+                <div><Icon name="users" /><span><small>Active employees</small><strong>{{ miniMetrics.activeEmployees || 120 }}</strong></span></div>
+                <div><Icon name="leave" /><span><small>On leave today</small><strong>{{ miniMetrics.onLeaveToday || 4 }}</strong></span></div>
+                <div><Icon name="clock" /><span><small>Weekly off today</small><strong>{{ miniMetrics.weeklyOffToday || 8 }}</strong></span></div>
+                <div><Icon name="user-plus" /><span><small>New hires · Aug</small><strong>{{ miniMetrics.newHires || 5 }}</strong></span></div>
               </div>
               <button class="primary-button dark" type="button" @click="reviewPanel = !reviewPanel">Review today’s actions <Icon name="arrow" /></button>
             </article>
@@ -106,8 +107,8 @@
           <section v-if="reviewPanel" class="surface review-panel">
             <div><span class="section-kicker">Recommended sequence</span><h2>Close the day in three moves</h2></div>
             <div class="review-steps">
-              <button type="button" @click="selectPage('Time off')"><span>01</span><strong>Review 3 leave requests</strong><small>Prevents a roster gap</small></button>
-              <button type="button" @click="selectPage('Attendance')"><span>02</span><strong>Resolve 2 check-in exceptions</strong><small>Keeps payroll clean</small></button>
+              <button type="button" @click="selectPage('Time off')"><span>01</span><strong>Review {{ pendingRequests.length }} leave requests</strong><small>Prevents a roster gap</small></button>
+              <button type="button" @click="selectPage('Attendance')"><span>02</span><strong>Resolve check-in exceptions</strong><small>Keeps payroll clean</small></button>
               <button type="button" @click="selectPage('Roster')"><span>03</span><strong>Publish next week’s roster</strong><small>98% coverage ready</small></button>
             </div>
           </section>
@@ -121,7 +122,7 @@
             </article>
             <article class="surface activity-card">
               <header class="section-heading"><div><span class="section-kicker">Live feed</span><h2>What changed</h2></div><span class="live-label"><i></i> Live</span></header>
-              <div v-for="event in activity" :key="event.title" class="activity-item"><span :class="event.tone"><Icon :name="event.icon" /></span><div><strong>{{ event.title }}</strong><small>{{ event.detail }}</small></div><time>{{ event.time }}</time></div>
+              <div v-for="event in activity" :key="event.id || event.title" class="activity-item"><span :class="event.tone"><Icon :name="event.icon" /></span><div><strong>{{ event.title }}</strong><small>{{ event.detail }}</small></div><time>{{ event.time }}</time></div>
             </article>
           </section>
         </template>
@@ -141,7 +142,7 @@
           <span class="section-kicker">Leave request review</span>
           <h2 id="decision-title">Make the decision with context</h2>
           <div class="decision-person"><span class="avatar teal">{{ initials(decisionDialog.name) }}</span><div><strong>{{ decisionDialog.name }}</strong><small>{{ decisionDialog.role }}</small></div><span class="status pending">Pending</span></div>
-          <div class="decision-facts"><div><small>Date range</small><strong>{{ decisionDialog.range }}</strong></div><div><small>Leave type</small><strong>Paid leave</strong></div><div><small>Team coverage</small><strong class="safe">Safe · 92%</strong></div><div><small>Payroll impact</small><strong>₹0</strong></div></div>
+          <div class="decision-facts"><div><small>Date range</small><strong>{{ decisionDialog.range }}</strong></div><div><small>Leave type</small><strong>{{ decisionDialog.leave_type || 'Paid leave' }}</strong></div><div><small>Team coverage</small><strong class="safe">Safe · {{ decisionDialog.team_coverage || '92%' }}</strong></div><div><small>Payroll impact</small><strong>₹0</strong></div></div>
           <div class="impact-note"><Icon name="spark" /><span><strong>Coverage remains protected.</strong><small>No critical skill or deadline conflict detected.</small></span></div>
           <label>Admin comment<textarea v-model="decisionComment" rows="3" placeholder="Add a clear note for the employee"></textarea></label>
           <div class="modal-actions"><button class="secondary-button danger" type="button" @click="resolveDecision('rejected')">Reject</button><button class="primary-button" type="button" @click="resolveDecision('approved')">Approve request <Icon name="arrow" /></button></div>
@@ -169,7 +170,7 @@
 </template>
 
 <script setup>
-import { computed, ref } from "vue"
+import { computed, onMounted, ref } from "vue"
 import Icon from "./components/Icon.vue"
 import AuthScreen from "./components/AuthScreen.vue"
 import ProfilePanel from "./components/ProfilePanel.vue"
@@ -180,6 +181,7 @@ import TimeOffPage from "./components/TimeOffPage.vue"
 import PayrollPage from "./components/PayrollPage.vue"
 import RosterPage from "./components/RosterPage.vue"
 import EmployeeHome from "./components/EmployeeHome.vue"
+import { authApi, coreApi, leavesApi } from "./api.js"
 
 const savedSession = sessionStorage.getItem("aria-session")
 const currentUser = ref(savedSession ? JSON.parse(savedSession) : null)
@@ -209,51 +211,129 @@ const navItems = [
 ]
 const availableNavItems = computed(() => isAdmin.value ? navItems : [])
 
-const journey = [
+const journey = ref([
   { label: "People", note: "Team ready" },
   { label: "Attendance", note: "98 present" },
   { label: "Time off", note: "7 to review" },
   { label: "Payroll", note: "12 checks" },
   { label: "Roster", note: "Coverage ready" },
-]
-
-const pendingRequests = ref([
-  { name: "Aisha Khan", role: "UX Designer", reason: "Paid leave · 24–25 Aug", range: "24 Aug – 25 Aug 2026", applied: "21 Aug", color: "teal" },
-  { name: "Rohit Sharma", role: "Support Specialist", reason: "Check-in missing · 21 Aug", range: "21 Aug 2026", applied: "today", color: "coral" },
-  { name: "Priya Desai", role: "Finance Analyst", reason: "Sick leave · 22 Aug", range: "22 Aug 2026", applied: "21 Aug", color: "blue" },
 ])
 
-const alignment = [
-  { label: "Staffing", detail: "118 / 120 on duty", value: "98%", progress: 98, icon: "users", tone: "good", page: "People" },
-  { label: "Attendance", detail: "98 present · 4 absent · 2 half-day", value: "94%", progress: 94, icon: "clock", tone: "good", page: "Attendance" },
-  { label: "Time off", detail: "7 pending · 3 approved · 1 rejected", value: "Review", progress: 72, icon: "leave", tone: "warn", page: "Time off" },
-  { label: "Payroll readiness", detail: "12 items need review", value: "90%", progress: 90, icon: "rupee", tone: "good", page: "Payroll" },
-]
+const pendingRequests = ref([])
+const alignment = ref([])
+const attendanceBars = ref([])
+const activity = ref([])
+const miniMetrics = ref({})
 
-const attendanceBars = [
-  { day: "Mon", value: 94 }, { day: "Tue", value: 97 }, { day: "Wed", value: 91 },
-  { day: "Thu", value: 96 }, { day: "Fri", value: 98 }, { day: "Sat", value: 74 }, { day: "Sun", value: 42 },
-]
-
-const activity = [
-  { title: "Payroll draft is ready", detail: "August payroll · 108 employees", time: "2m", icon: "rupee", tone: "mint" },
-  { title: "Neha checked in", detail: "Connaught Place Office", time: "8m", icon: "check", tone: "blue" },
-  { title: "Roster coverage improved", detail: "Support team · +6%", time: "24m", icon: "calendar", tone: "amber" },
-]
-
-function initials(name) { return name.split(" ").map((part) => part[0]).join("") }
-function selectPage(value) { page.value = value; mode.value = "admin"; mobileMenu.value = false; window.scrollTo({ top: 0, behavior: "smooth" }) }
-function handleAuthenticated(user) { currentUser.value = user; mode.value = user.role === "admin" ? "admin" : "employee"; sessionStorage.setItem("aria-session", JSON.stringify(user)); if (user.newlyVerified) showToast("Email verified — your ARIA account is ready") }
-function logout() { sessionStorage.removeItem("aria-session"); currentUser.value = null; mode.value = "admin"; page.value = "Command centre"; mobileMenu.value = false; showToast("Signed out securely") }
-function openProfile(person = null, tab = "personal") { profilePerson.value = person || { name: currentUser.value.name, email: currentUser.value.email, employeeId: currentUser.value.employeeId, role: currentUser.value.role === "admin" ? "HR Administrator" : "Software Engineer", department: currentUser.value.role === "admin" ? "People" : "Engineering", location: "New Delhi" }; profileTab.value = tab; profileOpen.value = true }
-function openDecision(request) { decisionDialog.value = request; decisionComment.value = "" }
-function resolveDecision(state) {
-  const name = decisionDialog.value.name
-  pendingRequests.value = pendingRequests.value.filter((request) => request !== decisionDialog.value)
-  decisionDialog.value = null
-  showToast(`${name}'s request was ${state}`)
+async function loadCommandCentre() {
+  try {
+    const data = await coreApi.getCommandCentre()
+    if (data.journey) journey.value = data.journey
+    if (data.alignment) alignment.value = data.alignment
+    if (data.attendanceBars) attendanceBars.value = data.attendanceBars
+    if (data.pendingRequests) pendingRequests.value = data.pendingRequests
+    if (data.activity) activity.value = data.activity
+    if (data.miniMetrics) miniMetrics.value = data.miniMetrics
+  } catch (err) {
+    console.error("Failed to load command centre data", err)
+  }
 }
-function submitLeave() { leaveDialog.value = false; showToast("Leave request submitted for approval") }
+
+onMounted(() => {
+  if (currentUser.value) {
+    loadCommandCentre()
+  }
+})
+
+function initials(name = "") {
+  return (name || "").split(" ").filter(Boolean).map((part) => part[0]).join("") || "AR"
+}
+
+function selectPage(value) {
+  page.value = value
+  mode.value = "admin"
+  mobileMenu.value = false
+  window.scrollTo({ top: 0, behavior: "smooth" })
+  if (value === "Command centre") {
+    loadCommandCentre()
+  }
+}
+
+function toggleMode() {
+  mode.value = mode.value === "admin" ? "employee" : "admin"
+}
+
+function handleAuthenticated(user) {
+  currentUser.value = user
+  mode.value = user.role === "admin" ? "admin" : "employee"
+  sessionStorage.setItem("aria-session", JSON.stringify(user))
+  if (user.newlyVerified) showToast("Email verified — your ARIA account is ready")
+  loadCommandCentre()
+}
+
+async function logout() {
+  try {
+    await authApi.logout()
+  } catch (err) {
+    // Ignore logout network errors
+  }
+  sessionStorage.removeItem("aria-session")
+  currentUser.value = null
+  mode.value = "admin"
+  page.value = "Command centre"
+  mobileMenu.value = false
+  showToast("Signed out securely")
+}
+
+function openProfile(person = null, tab = "personal") {
+  profilePerson.value = person || {
+    name: currentUser.value.name,
+    email: currentUser.value.email,
+    employeeId: currentUser.value.employeeId,
+    role: currentUser.value.jobTitle || (currentUser.value.role === "admin" ? "HR Administrator" : "Software Engineer"),
+    department: currentUser.value.department || (currentUser.value.role === "admin" ? "People" : "Engineering"),
+    location: currentUser.value.location || "New Delhi"
+  }
+  profileTab.value = tab
+  profileOpen.value = true
+}
+
+function openDecision(request) {
+  decisionDialog.value = request
+  decisionComment.value = ""
+}
+
+async function resolveDecision(state) {
+  const req = decisionDialog.value
+  const name = req.name
+  try {
+    await leavesApi.resolve(req.id, state, decisionComment.value)
+    pendingRequests.value = pendingRequests.value.filter((r) => r.id !== req.id && r !== req)
+    decisionDialog.value = null
+    showToast(`${name}'s request was ${state}`)
+    loadCommandCentre()
+  } catch (err) {
+    showToast(err.message || "Failed to update decision")
+  }
+}
+
+async function submitLeave() {
+  try {
+    await leavesApi.submit(leaveForm.value)
+    leaveDialog.value = false
+    showToast("Leave request submitted for approval")
+    loadCommandCentre()
+  } catch (err) {
+    showToast(err.message || "Failed to submit leave request")
+  }
+}
+
 let toastTimer
-function showToast(message) { toast.value = message; clearTimeout(toastTimer); toastTimer = setTimeout(() => { toast.value = "" }, 2800) }
+function showToast(message) {
+  toast.value = message
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => {
+    toast.value = ""
+  }, 2800)
+}
 </script>
