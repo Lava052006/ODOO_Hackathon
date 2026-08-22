@@ -30,6 +30,10 @@ services:
   frontend:
     image: node:20-alpine
     working_dir: /app
+    environment:
+      - BACKEND_HOST=frappe
+      - BACKEND_PORT=8000
+      - FRAPPE_SITE=hrms.localhost
     volumes:
       - ../frontend:/app
     ports:

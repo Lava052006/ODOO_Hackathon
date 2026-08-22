@@ -23,6 +23,11 @@ fi
 
 cd /home/frappe/frappe-bench
 
+# Auto-apply PostgreSQL compatibility driver patches
+if [ -f "/workspace/docker/patch_postgres.py" ]; then
+    /home/frappe/frappe-bench/env/bin/python /workspace/docker/patch_postgres.py || true
+fi
+
 # Ensure bind address is 0.0.0.0 and service hosts are configured
 bench set-mariadb-host "$DB_HOST"
 bench set-redis-cache-host redis://redis:6379
@@ -44,6 +49,9 @@ if [ ! -d "/home/frappe/frappe-bench/apps/hrms" ]; then
     echo "Linking local HRMS app into bench apps..."
     ln -s /workspace/code /home/frappe/frappe-bench/apps/hrms
 fi
+
+mkdir -p /home/frappe/frappe-bench/sites/assets
+ln -sfn /home/frappe/frappe-bench/apps/hrms/hrms/public /home/frappe/frappe-bench/sites/assets/hrms
 
 printf 'frappe\nerpnext\nhrms\n' > sites/apps.txt
 

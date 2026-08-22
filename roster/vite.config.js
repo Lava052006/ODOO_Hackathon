@@ -36,18 +36,33 @@ export default defineConfig({
 
 function getProxyOptions() {
 	const config = getCommonSiteConfig();
-	const webserver_port = config ? config.webserver_port : 8000;
+	const webserver_port = process.env.BACKEND_PORT || (config ? config.webserver_port : 8000);
+	const backend_host = process.env.BACKEND_HOST || "127.0.0.1";
+	const target_site = process.env.FRAPPE_SITE || "hrms.localhost";
+
 	if (!config) {
-		console.log("No common_site_config.json found, using default port 8000");
+		console.log(`No common_site_config.json found, using backend ${backend_host}:${webserver_port}`);
 	}
 	return {
 		"^/(app|login|api|assets|files|private)": {
-			target: `http://127.0.0.1:${webserver_port}`,
+			target: `http://${backend_host}:${webserver_port}`,
 			ws: true,
+			changeOrigin: false,
+			configure: (proxy) => {
+				proxy.on("proxyReq", (proxyReq, req) => {
+					const hostHeader = req.headers.host || "";
+					const site_name = hostHeader.split(":")[0];
+					if (site_name === "localhost" || site_name === "127.0.0.1" || !site_name) {
+						proxyReq.setHeader("Host", target_site);
+					}
+				});
+			},
 			router: function (req) {
-				const site_name = req.headers.host.split(":")[0];
-				console.log(`Proxying ${req.url} to ${site_name}:${webserver_port}`);
-				return `http://${site_name}:${webserver_port}`;
+				const reqHost = req.headers.host ? req.headers.host.split(":")[0] : "";
+				if (reqHost && reqHost !== "localhost" && reqHost !== "127.0.0.1" && !process.env.BACKEND_HOST) {
+					return `http://${reqHost}:${webserver_port}`;
+				}
+				return `http://${backend_host}:${webserver_port}`;
 			},
 		},
 	};
