@@ -7,7 +7,15 @@
         <p>Spot exceptions early without turning presence into surveillance.</p>
       </div>
       <div class="header-actions">
-        <a class="secondary-button" :href="exportUrl" download="ARIA-attendance.csv"><Icon name="download" /> Export</a>
+        <div class="filter-dropdown-wrap">
+          <button class="secondary-button" type="button" @click="exportDropdownOpen = !exportDropdownOpen">
+            <Icon name="download" /> Export <Icon name="chevron" />
+          </button>
+          <div v-if="exportDropdownOpen" class="filter-dropdown surface" style="min-width: 180px;">
+            <button class="text-button" type="button" @click="downloadAttendanceCsv">Download CSV</button>
+            <button class="text-button" type="button" @click="downloadAttendancePdf">Daily PDF Report</button>
+          </div>
+        </div>
         <button class="primary-button" type="button" @click="openQuickMark"><Icon name="check" /> Mark attendance</button>
       </div>
     </header>
@@ -133,10 +141,12 @@
 import { computed, onMounted, ref } from "vue"
 import Icon from "./Icon.vue"
 import { attendanceApi } from "../api.js"
+import { generateAttendanceSummaryPdf, downloadCsv } from "../reportTemplates.js"
 
 const emit = defineEmits(["toast"])
 const search = ref("")
 const exportUrl = attendanceApi.exportCsvUrl()
+const exportDropdownOpen = ref(false)
 const weekOffset = ref(0)
 const canGoForward = ref(false)
 const exceptionsOnly = ref(false)
@@ -191,6 +201,20 @@ const filteredRows = computed(() => {
 function openQuickMark() {
   emit("toast", "Synchronized team attendance records from biometric gateway")
   loadAttendance()
+}
+
+function downloadAttendanceCsv() {
+  exportDropdownOpen.value = false
+  const header = "Employee ID,Employee Name,Status,Check-in,Check-out,Work Hours,Location\n"
+  const csvRows = rows.value.map((r) => `"${r.employeeId || ''}","${r.name}","${r.status}","${r.in}","${r.out}","${r.hours}","${r.location}"`)
+  downloadCsv("ARIA-Attendance-22-Aug-2026.csv", header + csvRows.join("\n"))
+  emit("toast", "Attendance CSV exported")
+}
+
+function downloadAttendancePdf() {
+  exportDropdownOpen.value = false
+  generateAttendanceSummaryPdf(stats.value, rows.value)
+  emit("toast", "Opening Daily Attendance PDF Report for print/save")
 }
 
 async function resolveCurrentException(action) {

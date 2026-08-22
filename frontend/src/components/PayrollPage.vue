@@ -7,7 +7,15 @@
         <p>Catch attendance, leave and compensation issues before they become payroll errors.</p>
       </div>
       <div class="header-actions">
-        <a class="secondary-button" :href="exportReportUrl" download="ARIA-payroll-report.csv"><Icon name="download" /> Report</a>
+        <div class="filter-dropdown-wrap">
+          <button class="secondary-button" type="button" @click="exportDropdownOpen = !exportDropdownOpen">
+            <Icon name="download" /> Export <Icon name="chevron" />
+          </button>
+          <div v-if="exportDropdownOpen" class="filter-dropdown surface" style="min-width: 180px;">
+            <button class="text-button" type="button" @click="downloadPayrollCsv">Download CSV</button>
+            <button class="text-button" type="button" @click="downloadPayrollPdf">Executive PDF Report</button>
+          </div>
+        </div>
         <button class="primary-button" type="button" @click="runPayroll"><Icon name="rupee" /> {{ running ? 'Payroll closed' : 'Validate & close' }}</button>
       </div>
     </header>
@@ -131,9 +139,11 @@
 import { onMounted, ref } from "vue"
 import Icon from "./Icon.vue"
 import { payrollApi } from "../api.js"
+import { generatePayslipPdf, generatePayrollSummaryPdf, downloadCsv } from "../reportTemplates.js"
 
 const emit = defineEmits(["toast", "navigate"])
 const exportReportUrl = payrollApi.exportReportUrl()
+const exportDropdownOpen = ref(false)
 const running = ref(false)
 const selectedPayroll = ref(null)
 const summary = ref({})
@@ -215,21 +225,26 @@ async function saveSalary() {
   }
 }
 
-function downloadFile(filename, content, type = "text/plain") {
-  const blob = new Blob([content], { type })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = filename
-  link.click()
-  URL.revokeObjectURL(url)
+function downloadPayrollCsv() {
+  exportDropdownOpen.value = false
+  const header = "Employee ID,Employee Name,Role,Basic,HRA,Special,Other,Gross,Deductions,Net Pay\n"
+  const rows = payrollEmployees.value.map((e) => {
+    const g = gross(e)
+    const n = g - (e.deductions || 0)
+    return `"${e.id}","${e.name}","${e.role}",${e.basic},${e.hra},${e.special},${e.other},${g},${e.deductions || 0},${n}`
+  })
+  downloadCsv("ARIA-August-2026-Payroll-Report.csv", header + rows.join("\n"))
+  emit("toast", "Payroll CSV report downloaded")
+}
+
+function downloadPayrollPdf() {
+  exportDropdownOpen.value = false
+  generatePayrollSummaryPdf(summary.value, payrollEmployees.value)
+  emit("toast", "Opening executive PDF report for print/save")
 }
 
 function downloadPayslip(employee) {
-  downloadFile(
-    `ARIA-${employee.id}-August-2026-payslip.txt`,
-    `ARIA SALARY SLIP\nEmployee: ${employee.name}\nEmployee ID: ${employee.id}\nPeriod: August 2026\nBasic: ${currency(employee.basic)}\nAllowances: ${currency(employee.hra + employee.special + employee.other)}\nDeductions: ${currency(employee.deductions)}\nNet pay: ${currency(gross(employee) - employee.deductions)}`
-  )
-  emit("toast", `${employee.name}'s payslip downloaded`)
+  generatePayslipPdf(employee)
+  emit("toast", `Generated official payslip PDF for ${employee.name}`)
 }
 </script>

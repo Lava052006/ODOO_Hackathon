@@ -70,6 +70,7 @@
 import { computed, onMounted, reactive, ref, watch } from "vue"
 import Icon from "./Icon.vue"
 import { employeeApi } from "../api.js"
+import { generatePayslipPdf, printOrSavePdf } from "../reportTemplates.js"
 
 const props = defineProps({ person: { type: Object, default: null }, isAdmin: { type: Boolean, default: false }, initialTab: { type: String, default: "personal" } })
 const emit = defineEmits(["close", "toast"])
@@ -218,12 +219,48 @@ function downloadText(filename, content, type = "text/plain") {
 }
 
 function downloadPayslip() {
-  downloadText(`ARIA-${form.employeeId}-July-2026-payslip.txt`, `ARIA SALARY SLIP\nEmployee: ${form.name}\nEmployee ID: ${form.employeeId}\nPeriod: July 2026\nGross salary: ${currency(grossSalary.value)}\nNet pay: ${currency(grossSalary.value - 12680)}\nStatus: Paid`)
-  emit("toast", "Salary slip downloaded")
+  generatePayslipPdf(form)
+  emit("toast", `Generated official July 2026 payslip PDF for ${form.name}`)
 }
 
 function downloadDocument(document) {
-  downloadText(document.name.replace(/\.pdf$/i, ".txt"), `ARIA employee document preview\n${document.name}\nEmployee: ${form.name}\n${document.meta}`)
-  emit("toast", `${document.name} downloaded`)
+  const content = `
+    <div class="header-row">
+      <div class="brand">
+        <div>
+          <div class="brand-title">ARIA HRMS</div>
+          <div class="brand-sub">Employee Document & Verification Vault</div>
+        </div>
+      </div>
+      <div class="doc-meta">
+        <h2>OFFICIAL EMPLOYEE RECORD</h2>
+        <p>Document: <b>${document.name}</b></p>
+        <p>${document.meta || 'Verified'}</p>
+      </div>
+    </div>
+    <div class="info-grid">
+      <div>
+        <div class="info-item"><span>Employee:</span><strong>${form.name}</strong></div>
+        <div class="info-item"><span>Employee ID:</span><strong>${form.employeeId}</strong></div>
+      </div>
+      <div>
+        <div class="info-item"><span>Department:</span><strong>${form.department}</strong></div>
+        <div class="info-item"><span>Location:</span><strong>${form.location || 'New Delhi'}</strong></div>
+      </div>
+    </div>
+    <div style="padding: 32px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; text-align: center; margin-bottom: 24px;">
+      <p style="font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 8px;">${document.name}</p>
+      <p style="font-size: 13px; color: #64748b;">This document has been verified and stored in the PostgreSQL employee records vault.</p>
+    </div>
+    <div class="footer">
+      <div>ARIA Compliance & Verification System</div>
+      <div class="signatory">
+        <div class="signatory-line"></div>
+        <p>Custodian of Records</p>
+      </div>
+    </div>
+  `
+  printOrSavePdf(content, `ARIA-${form.employeeId}-${document.name}`)
+  emit("toast", `Opening verified PDF document for ${document.name}`)
 }
 </script>

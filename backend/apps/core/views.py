@@ -16,13 +16,14 @@ from apps.payroll.models import PayrollRun
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def notifications_view(request):
-    notifications = Notification.objects.all()[:20]
+    unread_count = Notification.objects.filter(is_read=False).count()
+    notifications = Notification.objects.all().order_by('-created_at')[:20]
     prefs = NotificationPreference.objects.all()
     
     return Response({
         'notifications': NotificationSerializer(notifications, many=True).data,
         'preferences': NotificationPreferenceSerializer(prefs, many=True).data,
-        'unreadCount': notifications.filter(is_read=False).count()
+        'unreadCount': unread_count
     })
 
 

@@ -7,7 +7,15 @@
         <p>Build the week around skills, workload and the people who make it work.</p>
       </div>
       <div class="header-actions">
-        <button class="secondary-button" type="button" @click="exportRosterCsv"><Icon name="download" /> Export</button>
+        <div class="filter-dropdown-wrap">
+          <button class="secondary-button" type="button" @click="exportDropdownOpen = !exportDropdownOpen">
+            <Icon name="download" /> Export <Icon name="chevron" />
+          </button>
+          <div v-if="exportDropdownOpen" class="filter-dropdown surface" style="min-width: 180px;">
+            <button class="text-button" type="button" @click="exportRosterCsv">Download CSV</button>
+            <button class="text-button" type="button" @click="exportRosterPdf">Weekly Schedule PDF</button>
+          </div>
+        </div>
         <button class="primary-button" type="button" @click="publish"><Icon name="check" /> {{ published ? 'Published' : 'Publish roster' }}</button>
       </div>
     </header>
@@ -93,8 +101,10 @@
 import { onMounted, ref } from "vue"
 import Icon from "./Icon.vue"
 import { rosterApi } from "../api.js"
+import { downloadCsv, printOrSavePdf } from "../reportTemplates.js"
 
 const emit = defineEmits(["toast"])
+const exportDropdownOpen = ref(false)
 const published = ref(false)
 const coveragePercent = ref(98)
 const days = ref([])
@@ -163,21 +173,91 @@ function findCover() {
 }
 
 function exportRosterCsv() {
+  exportDropdownOpen.value = false
   const header = "Employee ID,Name,Department," + days.value.map((d) => `${d.name} ${d.date} Aug`).join(",") + "\n"
   const rows = people.value.map((p) => {
     const shiftCodes = p.shifts.map((s) => s.code || "M").join(",")
     return `"${p.employeeId}","${p.name}","${p.role}",${shiftCodes}`
   })
-
-  const csvContent = header + rows.join("\n")
-  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = "ARIA-Roster-18-24-Aug-2026.csv"
-  link.click()
-  URL.revokeObjectURL(url)
-
+  downloadCsv("ARIA-Roster-18-24-Aug-2026.csv", header + rows.join("\n"))
   emit("toast", "Roster schedule exported to CSV")
+}
+
+function exportRosterPdf() {
+  exportDropdownOpen.value = false
+  const dayHeaders = days.value.map((d) => `<th class="text-center">${d.name}<br><small>${d.date} Aug</small></th>`).join('')
+  const rosterRows = people.value.map((p) => {
+    const shiftCells = p.shifts.map((s) => `
+      <td class="text-center">
+        <span style="display: inline-block; padding: 2px 6px; border-radius: 4px; font-weight: 700; font-size: 11px; ${
+          s.code === 'M' ? 'background: #ccfbf1; color: #0f766e;' :
+          s.code === 'E' ? 'background: #e0e7ff; color: #4338ca;' :
+          s.code === 'N' ? 'background: #f1f5f9; color: #334155;' :
+          s.code === 'L' ? 'background: #fee2e2; color: #b91c1c;' : 'background: #fef3c7; color: #b45309;'
+        }">
+          ${s.code}
+        </span>
+      </td>
+    `).join('')
+
+    return `
+      <tr>
+        <td><strong>${p.name}</strong><br><small style="color: #64748b;">${p.role}</small></td>
+        <td>${p.employeeId}</td>
+        ${shiftCells}
+      </tr>
+    `
+  }).join('')
+
+  const content = `
+    <div class="header-row">
+      <div class="brand">
+        <div>
+          <div class="brand-title">ARIA HRMS</div>
+          <div class="brand-sub">Workforce Roster & Shift Planning</div>
+        </div>
+      </div>
+      <div class="doc-meta">
+        <h2>TEAM ROSTER SCHEDULE</h2>
+        <p>Period: <b>18–24 August 2026</b></p>
+        <p>Coverage: <b>${coveragePercent.value}% Capacity</b></p>
+      </div>
+    </div>
+
+    <div class="info-grid">
+      <div>
+        <div class="info-item"><span>Roster Status:</span><strong style="color: #15803d;">${published.value ? 'Published & Confirmed' : 'Pre-Lock Draft'}</strong></div>
+        <div class="info-item"><span>Total Planned Shifts:</span><strong>840 Assignments</strong></div>
+      </div>
+      <div>
+        <div class="info-item"><span>Core Shift Types:</span><strong>M (Morning), E (Evening), N (Night)</strong></div>
+        <div class="info-item"><span>Standby Cover:</span><strong>Support Team Verified</strong></div>
+      </div>
+    </div>
+
+    <table class="report-table">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>ID</th>
+          ${dayHeaders}
+        </tr>
+      </thead>
+      <tbody>
+        ${rosterRows}
+      </tbody>
+    </table>
+
+    <div class="footer">
+      <div>ARIA Schedule Master · Official Workforce Distribution</div>
+      <div class="signatory">
+        <div class="signatory-line"></div>
+        <p>Staffing Coordinator</p>
+      </div>
+    </div>
+  `
+
+  printOrSavePdf(content, `ARIA-Roster-Schedule-18-24-Aug-2026`)
+  emit("toast", "Opening Weekly Roster Schedule PDF for print/save")
 }
 </script>
