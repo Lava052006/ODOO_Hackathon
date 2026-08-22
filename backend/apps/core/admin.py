@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Notification, NotificationPreference, ActivityEvent
+from .models import Notification, NotificationPreference, ActivityEvent, MediaAsset
 
 # Customizing the Django Admin branding
 admin.site.site_header = "ARIA HRMS Command Centre"
@@ -28,3 +28,9 @@ class NotificationAdmin(admin.ModelAdmin):
 class NotificationPreferenceAdmin(admin.ModelAdmin):
     list_display = ('user', 'email', 'push')
     search_fields = ('user__username', 'user__employee_id')
+
+@admin.register(MediaAsset)
+class MediaAssetAdmin(admin.ModelAdmin):
+    list_display = ('title', 'media_file', 'uploaded_at')
+    search_fields = ('title',)
+    list_filter = ('uploaded_at',)

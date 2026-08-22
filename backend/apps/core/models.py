@@ -43,3 +43,11 @@ class ActivityEvent(models.Model):
 
     def __str__(self):
         return f"{self.title} - {self.time_text}"
+
+class MediaAsset(models.Model):
+    title = models.CharField(max_length=255)
+    media_file = models.FileField(upload_to='minio_media/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.title
