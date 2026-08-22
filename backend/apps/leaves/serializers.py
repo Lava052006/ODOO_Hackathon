@@ -26,9 +26,25 @@ class LeaveRequestSerializer(serializers.ModelSerializer):
         return getattr(obj.employee, 'avatar_color', 'teal')
 
     def get_range(self, obj):
-        f = obj.from_date.strftime('%d %b')
-        t = obj.to_date.strftime('%d %b %Y')
-        return f"{f} – {t}" if obj.from_date != obj.to_date else obj.from_date.strftime('%d %b %Y')
+        from datetime import datetime, date
+        f_date = obj.from_date
+        t_date = obj.to_date
+        if isinstance(f_date, str):
+            try:
+                f_date = datetime.strptime(f_date, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+        if isinstance(t_date, str):
+            try:
+                t_date = datetime.strptime(t_date, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+
+        f_str = f_date.strftime('%d %b') if hasattr(f_date, 'strftime') else str(f_date)
+        t_str = t_date.strftime('%d %b %Y') if hasattr(t_date, 'strftime') else str(t_date)
+        return f"{f_str} – {t_str}" if f_date != t_date else t_str
 
     def get_applied(self, obj):
-        return obj.applied_at.strftime('%d %b') if obj.applied_at else 'today'
+        if hasattr(obj.applied_at, 'strftime'):
+            return obj.applied_at.strftime('%d %b')
+        return 'today'
